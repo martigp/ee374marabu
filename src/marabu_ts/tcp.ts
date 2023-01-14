@@ -1,5 +1,6 @@
 import net from 'net';
 import { canonicalize } from "json-canonicalize";
+import { EntryType } from 'perf_hooks';
 
 /*
 This file defines some general TCP functions used by both server & cliet
@@ -42,4 +43,8 @@ export function valid_format(msg : any) : boolean {
         }
     }
     return false;
+};
+
+export function process_msg(socket : net.Socket, msg: any) {
+    
 }

@@ -31,3 +31,6 @@ export function destroy_soc(socket: net.Socket, err_type: ERRORS, err_msg: strin
     socket.write(canonicalize(err) + `\n`);
     socket.destroy();
 }
+
+// Default Timeout 10 seconds
+export const DEFAULT_TIMEOUT = 10 * 1000
