@@ -1,6 +1,7 @@
 import net from 'net';
 import { canonicalize } from "json-canonicalize";
-import { EntryType } from 'perf_hooks';
+import { isHelloMessage } from './messages/hello';
+import { IMessage } from './messages/message';
 
 /*
 This file defines some general TCP functions used by both server & cliet
@@ -12,7 +13,7 @@ const GET_PEERS = {"type": "getpeers"};
 
 export function send_hello(socket: net.Socket, server: boolean) {
     let hello = HELLO;
-    HELLO.agent = `Maribu ${server ? "Server" : "Client"} 0.9`;
+    HELLO.agent = `Maribu ${server ? "Server" : "Client"} 0.9.0`;
     socket.write(`${canonicalize(hello)}\n`);
 }
 
@@ -20,23 +21,28 @@ export function send_get_peers(socket: net.Socket) {
     socket.write(`${canonicalize(GET_PEERS)}\n`);
 }
 
-export function valid_format(msg : any) : boolean {
-    if(msg.has("type")) {
+/*
+Function that purely checks correct formatting i.e. correct fields
+*/
+export function valid_format(msg : IMessage) : boolean {
+    if("type" in msg) {
         switch(msg.type) {
             case "hello": {
-                // Parse Hello
-                if (msg.has("version") && /0\.9\..+/.test(msg.version)) {
-                    return true;
+                // Parse Hello Message
+                if(isHelloMessage(msg)) {
+                    // Checks correct versioning, maybe should do this afterwards?
+                    return /0\.9\..+/.test(msg.version);
                 }
                 break;
             };
-            case "transaction": {
+            case "peers": {
                 // Parse
                 break;
             }
-            case "block": {
-                break;
+            case "get_peers": {
+                return true;
             }
+            // TODO: Handling with all Types
             default: {
                 break;
             }
@@ -46,5 +52,5 @@ export function valid_format(msg : any) : boolean {
 };
 
 export function process_msg(socket : net.Socket, msg: any) {
-    
+    //Process Based on Message Type e.g. Hello Should check version with process_hello
 }

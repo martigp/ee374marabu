@@ -1,8 +1,7 @@
 import net from 'net';
 import {valid_format, send_hello, process_msg} from './tcp';
 import {ERRORS, destroy_soc, DEFAULT_TIMEOUT} from './error';
-import { canonicalize } from "json-canonicalize";
-import { send } from 'process';
+import { IMessage } from './messages/message';
 
 // This means anyone can connect on internet
 export const SERVER_HOST = '0.0.0.0';
@@ -25,11 +24,12 @@ export function listener(socket : net.Socket) {
         if (messages.length > 1) {
             // Catch any exceptions from JSON parsing
             try {
-                let first_msg = JSON.parse(messages[0]);
+                let first_msg : IMessage = JSON.parse(messages[0]);
                 if(valid_format(first_msg)) {
                     if(!hello_rcvd) {
                         if(first_msg.type === "hello") {
                             hello_rcvd = true;
+                            console.log("Client Hello Received")
                         } else {
                             destroy_soc(socket, ERRORS.INVALID_HANDSHAKE, "Not received hello yet");
                         }
@@ -49,6 +49,7 @@ export function listener(socket : net.Socket) {
                 }
             }
             catch(e) {
+                console.log(e);
                 destroy_soc(socket, ERRORS.INVALID_FORMAT, "Message was invalid JSON format");
             }
         }
@@ -65,6 +66,21 @@ export function listener(socket : net.Socket) {
     });
 
     socket.on('close', () => {
+        buffer = '';
         console.log(`Client disconnected`);
     });
+}
+
+export class MarabuServer {
+    private server : net.Server;
+
+    constructor() {
+        this.server = net.createServer(listener);
+    }
+
+    listen(port : number, host : string) {
+        this.server.listen(port, host, () => {
+            console.log(`Listening on ${port}:${host}`);
+        });
+    }
 }
