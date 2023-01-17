@@ -17,3 +17,4 @@ class MarabuNode {
 
 const node = new MarabuNode("./peers.json");
 node.server.listen(SERVER_PORT, SERVER_HOST);
+node.client.connect();
