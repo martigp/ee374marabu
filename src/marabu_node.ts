@@ -2,6 +2,7 @@ import net from 'net';
 import {SERVER_HOST, SERVER_PORT, listener, MarabuServer} from './marabu_ts/server';
 import { MarabuClient } from './marabu_ts/client';
 import { send_get_peers, send_hello } from './marabu_ts/tcp';
+
 class MarabuNode {
     client : MarabuClient = new MarabuClient();
     server : MarabuServer = new MarabuServer();

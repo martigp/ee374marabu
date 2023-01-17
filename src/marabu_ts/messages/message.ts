@@ -8,9 +8,11 @@ export interface IHelloMessage extends IMessage {
 }
 
 export interface IGetPeersMessage extends IMessage {
+    type: string;
 }
 
 export interface IPeersMessage extends IMessage {
+    type: string; 
     peers : Array<string>;
 }
 
