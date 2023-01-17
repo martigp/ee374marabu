@@ -18,15 +18,28 @@ export class MarabuClient {
     this.buffer = '';
     this.hello_rcvd = false;
  }
+ 
  connect() {
-    // Read from peers file, but hardcoded here
+    // Read from peers file
+    var jsondata = JSON.parse(fs.readFileSync('src/peers.json', 'utf-8')); 
+
+    var existingpeers = jsondata.peers; 
+
     this.socket.connect(HARDCODE_PORT, HARDCODE_HOST,() => {
         console.log("Connected to foreign Server");
         send_hello(this.socket, false);
         send_get_peers(this.socket);
     });
-    this.socket.on('data', (data) => {
-        // Do data handling?
+
+    client.on('data', (data) => {
+        //do data handling 
+        console.log(`Server sent: ${data}`);
+    })
+    client.on('error', (error) =>{
+        console.error(`Server error: ${error}`)
+    });
+    client.on('close', () =>{
+        console.error(`Server disconnected`);
     });
  }
 }
