@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "node": "ts-node --project tsconfig.json src/marabu_node.ts"
+    "node": "ts-node --project tsconfig.json src/marabu_node.ts",
+    "pset1_test" : "ts-node --project tsconfig.json src/tests/pset1.ts"
   },
   "repository": "git+https://github.com/martigp/ee374marabu.git",
   "author": "",
