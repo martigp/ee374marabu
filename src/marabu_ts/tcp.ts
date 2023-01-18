@@ -1,9 +1,9 @@
 import net from 'net';
 import fs from 'fs';
 import { canonicalize } from "json-canonicalize";
-import { isHelloMessage } from './messages/hello';
-import { IMessage, zHelloMessage, zMessage } from './messages/message';
-import { z } from "zod";
+import * as mess from './messages/message';
+import { destroy_soc } from './error';
+import { MarabuMessageProcessor } from './msg_processor';
 
 /*
 This file defines some general TCP functions used by both server & cliet
@@ -12,109 +12,67 @@ such as sending a hello or processing data sent by their peer
 
 const HELLO = { "type": "hello", "version": "0.9.0", "agent" : ""};
 const GET_PEERS = {"type": "getpeers"};
+const PEERS = {"type": "peers", "peers": [""] };
 
 export function send_hello(socket: net.Socket, server: boolean) {
     let hello = HELLO;
     HELLO.agent = `Maribu ${server ? "Server" : "Client"} 0.9.0`;
     socket.write(`${canonicalize(hello)}\n`);
-}
-
-export function send_peers(socket: net.Socket, peers: any) {
-    socket.write(`${canonicalize(peers)}\n`);
+    console.log(`${server ? "Server" : "Client"} hello sent`);
 }
 
 export function send_get_peers(socket: net.Socket) {
     socket.write(`${canonicalize(GET_PEERS)}\n`);
+    console.log("Get peers sent")
 }
 
-export function process_peers(msg: any) { 
-    //add the peers to our local json peers.json 
-    let newPeers: string[] = msg.peers; 
-
-    var jsondata = JSON.parse(fs.readFileSync('src/peers.json', 'utf-8')); 
-
-    var existingpeers = jsondata.peers; 
-
-    var finalPeers: string[] = newPeers.concat(existingpeers); 
-
-    const peersString = { //create JSON object 
-        peers: finalPeers,
-    }
-
-    finalPeers = [...new Set([...newPeers,...existingpeers])]; //remove duplicates
-
-    fs.writeFile("src/peers.json", JSON.stringify(peersString), err => { //update JSON file 
-        if (err) console.log("Error Updating Peers: ", err);
-      });
-
+export function send_peers(socket: net.Socket, peers: Array<string>) {
+    console.log(`Sending peers:\n${peers}`);
+    let peers_msg = PEERS;
+    peers_msg.peers = peers;
+    socket.write(`${canonicalize(peers_msg)}\n`);
 }
 
-export function process_getpeers(socket : net.Socket) { //send a message with our peers when asked 
-    var jsondata = JSON.parse(fs.readFileSync('src/peers.json', 'utf-8')); 
-    
-    var existingpeers = jsondata.peers; 
-    send_peers(socket, existingpeers);
-
-}
-
-export function process_hello(msg: any) : boolean {
-    return /0\.9\..+/.test(msg.version);
-}
-
-/*
-Function that purely checks correct formatting i.e. correct fields
-*/
-export function valid_format(msg : IMessage) : boolean {
-    if("type" in msg) {
-        switch(msg.type) {
-            case "hello": {
-                // let ret = zHelloMessage.safeParse(msg);
-                // if(parsed_msg.success) {
-                //     return /0\.9\..+/.test(parsed_msg.data.version);
-                // }
-                // console.log(res);
-                // // Parse Hello Message
-                if(isHelloMessage(msg)) {
-                    // Checks correct versioning, maybe should do this afterwards?
-                    return /0\.9\..+/.test(msg.version);
+export function tcp_responder(socket : net.Socket, buffer : string, hello_rcvd : boolean, server: boolean) {
+    let msg_processor = new MarabuMessageProcessor();
+    socket.on('data', (data) => {
+        buffer += data;
+        const messages = buffer.split('\n');
+        console.log(`${server ? "Server" : "Client"} messages received: ${messages}`);
+        // Empty string if last character is '\n'
+        if (messages.length > 1) {
+            // Catch any exceptions from JSON parsing
+            try {
+                if(!hello_rcvd) {
+                    let first_msg : mess.IMessage = JSON.parse(messages[0]);
+                    if(!msg_processor.process_first_msg(socket, first_msg, server)) {
+                        buffer = ''
+                        return;
+                    }
+                    hello_rcvd = true;
                 }
-                break;
-            };
-            case "peers": {
-                // Parse
-                break;
+                for(const message of messages.slice(Number(hello_rcvd), -1)) {
+                    // Process each message accordingly
+                    let json_msg = JSON.parse(message);
+                    if(!msg_processor.process_msg(socket, json_msg, server)) {
+                        buffer = '';
+                        return;
+                    }
+                }
             }
-            case "get_peers": {
-                return true;
-            }
-            // TODO: Handling with all Types
-            default: {
-                break;
+            catch(e) {
+                console.log(e);
+                destroy_soc(socket, "INVALID_FORMAT", "Message was invalid JSON format");
+                buffer = '';
             }
         }
-    }
-    // Defaulting to True here
-    return true;
-};
+        buffer = messages[messages.length - 1];
+    });
 
-export function process_msg(socket : net.Socket, msg: any) {
-    switch(msg.type) { 
-        case "hello": { 
-           process_hello(msg); 
-           break; 
-        } 
-        case "peers": { 
-            console.log("Client processing Server sent peers")
-            process_peers(msg); 
-           break; 
-        } 
-        case "getpeers": { 
-            process_getpeers(socket); 
-            break; 
-         } 
-        default: { 
-           //statements; 
-           break; 
-        } 
-     }
+    socket.on('error', (error) =>{
+        console.error(`${server ? "Client" : "Server"} error: ${error}`)
+    });
+    socket.on('close', () =>{
+        console.error(`${server ? "Client" : "Server"} disconnected`);
+    });
 }

@@ -22,11 +22,11 @@ export enum ERRORS {
     INVALID_GENESIS,
 }
 
-export const DEFAULT_ERROR = { "type": "error", "name": ERRORS.INVALID_FORMAT, "message": ""};
+export const DEFAULT_ERROR = { "type": "error", "name": "INVALID_FORMAT", "message": ""};
 
-export function destroy_soc(socket: net.Socket, err_type: ERRORS, err_msg: string) {
+export function destroy_soc(socket: net.Socket, err_type: string, err_msg: string) {
     let err = DEFAULT_ERROR;
-    err.name = ERRORS.INVALID_FORMAT;
+    err.name = err_type;
     err.message = err_msg;
     socket.write(canonicalize(err) + `\n`);
     socket.destroy();
