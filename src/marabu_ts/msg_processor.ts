@@ -20,29 +20,23 @@ export class MarabuMessageProcessor {
             console.log("Couldn't read from peers.json");
         }
         return true;
+    
     }
     
     private process_peers(msg: mess.IPeersMessage) : boolean { 
         //add the peers to our local json peers.json 
-        let new_peers: string[] = msg.peers;
+        let newPeers: string[] = msg.peers;
         try {
-            var json_data = JSON.parse(fs.readFileSync('src/peers.json', 'utf-8')); 
+            var jsondata = JSON.parse(fs.readFileSync('src/peers.json', 'utf-8')); 
     
-            var existing_peers = json_data.peers; 
-            
-            let new_valid_peers: string[] = []; 
-
-            for (let peer_id of new_peers) {
-                if(check_marabu_peer(peer_id)){ 
-                    new_valid_peers.push(peer_id); 
-                }
-              }
-            var final_peers: string[] = new_valid_peers.concat(existing_peers); 
+            var existingpeers = jsondata.peers; 
         
-            final_peers = [...new Set([...new_valid_peers,...existing_peers])];
+            var finalPeers: string[] = newPeers.concat(existingpeers); 
+        
+            finalPeers = [...new Set([...newPeers,...existingpeers])];
         
             const peersString = { //create JSON object 
-                peers: final_peers,
+                peers: finalPeers,
             }
             fs.writeFileSync("src/peers.json", JSON.stringify(peersString));
         }
@@ -164,7 +158,6 @@ export class MarabuMessageProcessor {
                 } 
             }
     }
-
         if(!valid_format) {
             destroy_soc(socket, "INVALID_FORMAT", `Message formatted incorrectly`);
         }
