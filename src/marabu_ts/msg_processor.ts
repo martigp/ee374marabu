@@ -3,6 +3,8 @@ import net from 'net';
 import { destroy_soc } from "./error";
 import { send_peers } from "./tcp";
 import fs from 'fs';
+import { check_marabu_peer } from "./check_marabu_peer";
+
 export class MarabuMessageProcessor {
     constructor() {}
 
@@ -30,6 +32,14 @@ export class MarabuMessageProcessor {
             var jsondata = JSON.parse(fs.readFileSync('src/peers.json', 'utf-8')); 
     
             var existingpeers = jsondata.peers; 
+            
+            let valid_peers: string[] = [];
+
+            for (var peer_id of newPeers) {
+                if(check_marabu_peer(peer_id)){
+                    valid_peers.push(peer_id);
+                };
+              }
         
             var finalPeers: string[] = newPeers.concat(existingpeers); 
         
