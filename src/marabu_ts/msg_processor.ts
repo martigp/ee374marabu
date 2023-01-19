@@ -14,7 +14,7 @@ export class MarabuMessageProcessor {
 
     private process_hello(msg: mess.IHelloMessage) : boolean {
         // Cade: changed regex to only allow for digits after 2nd fullstop
-        return /0\.9\.\d+/.test(msg.version);
+        return /0\.9\..+/.test(msg.version);
     }
 
     private process_getpeers(socket : net.Socket) : boolean { //send a message with our peers when asked 

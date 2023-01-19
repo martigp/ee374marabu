@@ -99,6 +99,13 @@ fs@^0.0.1-security:
   resolved "https://registry.npmjs.org/fs/-/fs-0.0.1-security.tgz"
   integrity sha512-3XY9e1pP0CVEUCdj5BmfIZxRBTSDycnbqhIOGec9QYtmVH2fbLpj86CFWkrNOkt/Fvty4KZG5lTglL9j/gJ87w==
 
+is-valid-domain@^0.1.6:
+  version "0.1.6"
+  resolved "https://registry.npmjs.org/is-valid-domain/-/is-valid-domain-0.1.6.tgz"
+  integrity sha512-ZKtq737eFkZr71At8NxOFcP9O1K89gW3DkdrGMpp1upr/ueWjj+Weh4l9AI4rN0Gt8W2M1w7jrG2b/Yv83Ljpg==
+  dependencies:
+    punycode "^2.1.1"
+
 json-canonicalize@^1.0.4:
   version "1.0.4"
   resolved "https://registry.npmjs.org/json-canonicalize/-/json-canonicalize-1.0.4.tgz"
@@ -108,6 +115,11 @@ make-error@^1.1.1:
   version "1.3.6"
   resolved "https://registry.npmjs.org/make-error/-/make-error-1.3.6.tgz"
   integrity sha512-s8UhlNe7vPKomQhC1qFelMokr/Sc3AgNbso3n74mVPA5LTZwkB9NlXf4XPamLxJE8h0gh73rM94xvwRT2CVInw==
+
+punycode@^2.1.1:
+  version "2.2.0"
+  resolved "https://registry.npmjs.org/punycode/-/punycode-2.2.0.tgz"
+  integrity sha512-LN6QV1IJ9ZhxWTNdktaPClrNfp8xdSAYS0Zk2ddX7XsXZAxckMHPCBcHRo0cTcEIgYPRiGEkmji3Idkh2yFtYw==
 
 ts-node@^10.9.1:
   version "10.9.1"
