@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "node": "ts-node --project tsconfig.json src/marabu_node.ts",
-    "pset1_test" : "ts-node --project tsconfig.json src/tests/pset1.ts"
+    "pset1_test": "ts-node --project tsconfig.json src/tests/pset1.ts"
   },
   "repository": "git+https://github.com/martigp/ee374marabu.git",
   "author": "",
@@ -23,6 +23,7 @@
     "@types/dotenv": "^8.2.0",
     "delay": "^5.0.0",
     "fs": "^0.0.1-security",
+    "is-valid-domain": "^0.1.6",
     "json-canonicalize": "^1.0.4",
     "zod": "^3.20.2"
   }

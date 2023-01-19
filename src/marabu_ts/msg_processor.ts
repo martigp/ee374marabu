@@ -105,7 +105,7 @@ export class MarabuMessageProcessor {
                     valid_format = mess.zPeersMessage.safeParse(msg).success;
                     break;
                 }
-                case "get_peers": {
+                case "getpeers": {
                     valid_format = mess.zMessage.safeParse(msg).success;
                     break;
                 }
