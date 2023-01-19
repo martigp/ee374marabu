@@ -2,7 +2,7 @@ import net from 'net';
 import fs from 'fs';
 import { canonicalize } from "json-canonicalize";
 import * as mess from './messages/message';
-import { destroy_soc } from './error';
+import { DEFAULT_TIMEOUT, destroy_soc } from './error';
 import { MarabuMessageProcessor } from './msg_processor';
 
 /*
@@ -32,6 +32,9 @@ export function send_peers(socket: net.Socket, peers: Array<string>) {
 }
 
 export function tcp_responder(socket : net.Socket, buffer : string, hello_rcvd : boolean, server: boolean) {
+    socket.setTimeout(DEFAULT_TIMEOUT, ()=> {
+        socket.destroy();
+    });
     let msg_processor = new MarabuMessageProcessor();
     socket.on('data', (data) => {
         buffer += data;
@@ -40,6 +43,9 @@ export function tcp_responder(socket : net.Socket, buffer : string, hello_rcvd :
         // Empty string if last character is '\n'
         if (messages.length > 1) {
             // Catch any exceptions from JSON parsing
+            console.log(hello_rcvd);
+            console.log(messages[0]);
+            let start_ind = 0;
             try {
                 if(!hello_rcvd) {
                     let first_msg : mess.IMessage = JSON.parse(messages[0]);
@@ -48,10 +54,13 @@ export function tcp_responder(socket : net.Socket, buffer : string, hello_rcvd :
                         return;
                     }
                     hello_rcvd = true;
+                    start_ind = 1;
                 }
-                for(const message of messages.slice(Number(hello_rcvd), -1)) {
+                console.log()
+                for(const message of messages.slice(start_ind, -1)) {
                     // Process each message accordingly
                     let json_msg = JSON.parse(message);
+                    console.log(message);
                     if(!msg_processor.process_msg(socket, json_msg, server)) {
                         buffer = '';
                         return;
@@ -73,4 +82,8 @@ export function tcp_responder(socket : net.Socket, buffer : string, hello_rcvd :
     socket.on('close', () =>{
         console.error(`Remote ${server ? "Client" : "Server"} disconnected`);
     });
+    socket.on('timeout', () =>{
+        console.log("Timeout response called");
+    }
+    );
 }

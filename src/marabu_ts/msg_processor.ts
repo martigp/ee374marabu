@@ -155,6 +155,7 @@ export class MarabuMessageProcessor {
     process_msg(socket : net.Socket, msg: any, server: boolean) : boolean {
         let valid_format = false
         if ("type" in msg) {
+            console.log(msg.type)
             switch(msg.type) { 
                 case "hello": {
                     let parsed_msg = mess.zHelloMessage.safeParse(msg);
@@ -185,10 +186,10 @@ export class MarabuMessageProcessor {
                 } 
             }
     }
-        if(!valid_format) {
-            destroy_soc(socket, "INVALID_FORMAT", `Message formatted incorrectly`);
-        }
-        // Will want to do some checking in the future on return valid of 
-        return true;
+    if(!valid_format) {
+        destroy_soc(socket, "INVALID_FORMAT", `Message formatted incorrectly`);
+    }
+    // Will want to do some checking in the future on return valid of 
+    return true;
     }
 }
