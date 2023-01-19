@@ -61,7 +61,6 @@ export class MarabuMessageProcessor {
                 let port = split_peer[1];
                 if(isIP(host)) {
                     let new_client = new MarabuClient();
-                    console.log("First connection");
                     new_client.connect(Number(port), host);
                 }
                 cnt += 1;
@@ -95,7 +94,7 @@ export class MarabuMessageProcessor {
                             destroy_soc(socket, "INVALID_FORMAT", `Invalid Hello Version`);
                             return false;
                         }
-                        console.log(`${server ? "Server" : "Client"} Hello Received`);
+                        console.log(`Remote ${server ? "Server" : "Client"} Hello Received`);
                         return true;
                     }
                 };
