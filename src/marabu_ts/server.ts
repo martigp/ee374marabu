@@ -25,7 +25,9 @@ export class MarabuServer {
         const address = `${socket.remoteAddress}:${socket.remotePort}`;
         console.log(`Client connected: ${address}`);
         
-        socket.setTimeout(DEFAULT_TIMEOUT);
+        socket.setTimeout(DEFAULT_TIMEOUT, ()=> {
+            socket.destroy();
+        });
         send_hello(socket, true);
         send_get_peers(socket);
 

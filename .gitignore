@@ -1,2 +1,9 @@
-# 
+# standard
+.gitignore
+
+# config
+package-lock.json
+
+
+# my private info 
 secrets.txt

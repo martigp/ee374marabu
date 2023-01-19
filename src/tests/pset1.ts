@@ -1,7 +1,7 @@
 import net from 'net';
 import delay from 'delay';
 import { canonicalize } from "json-canonicalize";
-import { send_hello, send_get_peers, tcp_responder} from '../marabu_ts/tcp';
+import { send_hello, send_get_peers, tcp_responder } from '../marabu_ts/tcp';
 
 const SERVER_PORT = 18018;
 //Would just be the IP in the PSET / bootstrapping nodes
@@ -11,7 +11,7 @@ const SERVER_HOST = '0.0.0.0';
 const client_soc = new net.Socket();
 
 function complete_handshake(client_soc: net.Socket) {
-    let msg = `${canonicalize({"type": "hello", "version": "0.9.0"})}\n`
+    let msg = `${canonicalize({ "type": "hello", "version": "0.9.0" })}\n`
     client_soc.write(msg)
 }
 
@@ -56,20 +56,18 @@ function test_incomplete_msg(client_soc: net.Socket, msg1: string, msg2?: string
 }
 
 // This function tests from the perspective of the grader
-function check_getpeers_response(client_soc: net.Socket) {
+function check_sliced_getpeers(client_soc: net.Socket) {
     client_soc.connect(SERVER_PORT, SERVER_HOST, async () => {
         console.log(`Connected to server ${SERVER_HOST}:${SERVER_PORT}`);
         complete_handshake(client_soc)
 
-        let msg = `${canonicalize({"type": "getpeers"})}\n`;
+        let msg = `${canonicalize({ "type": "getpeers" })}\n`;
 
-        // client_soc.write(`${msg}`);
-
-        client_soc.write(`${msg.slice(0,4)}`);
+        client_soc.write(`${msg.slice(0, 4)}`);
         await delay(3000);
         client_soc.write(`${msg.slice(4)}`);
 
-    });    
+    });
 
     client_soc.on('data', (data) => {
         console.log(`tester received: ${data}`);
@@ -100,15 +98,15 @@ function check_timeout(client_soc: net.Socket) {
         console.log(`Connected to server ${SERVER_HOST}:${SERVER_PORT}`);
         complete_handshake(client_soc)
 
-        let msg = `${canonicalize({"type": "getpeers"})}\n`;
+        let msg = `${canonicalize({ "type": "getpeers" })}\n`;
 
         // client_soc.write(`${msg}`);
 
-        client_soc.write(`${msg.slice(0,4)}`);
+        client_soc.write(`${msg.slice(0, 4)}`);
         await delay(50000);
         client_soc.write(`${msg.slice(4)}`);
 
-    });    
+    });
 
     client_soc.on('data', (data) => {
         console.log(`tester received: ${data}`);
@@ -134,27 +132,33 @@ function check_timeout(client_soc: net.Socket) {
 
 // RUN TESTS
 
-// valid hello
-// test_complete_msg(client_soc, `{"type":"hello", "version":"0.9.0"}`);
+const TEST_CASE: string = "B"
 
-// Invalid initial message - expecting invalid handshake when run before all other messages
-// TODO: FAILING THIS TEST
-test_complete_msg(client_soc, `{"type":"jbh", "version":"0.9.0"}\n`)
-// ----------------------
+switch (TEST_CASE) {
+    case "valid_hello": {
+        let msg = `${canonicalize({ "type": "hello", "version": "0.9.0" })}\n`;
+        test_complete_msg(client_soc, msg);
+        break;
+    }
+    case "A": {
+        //Invalid message because newline - expecting improper format
+        let msg = `{"type":"hello",\n "version":"0.8.0" }\n`;
+        test_complete_msg(client_soc, msg);
+        break;
+    }
+    case "B": {
+        // valid message before hello - expecting improper handshake
+        let msg = `${canonicalize({ "type": "getpeers" })}\n`;
+        test_complete_msg(client_soc, msg)
+        break;
+    }
+    case "sliced_getpeers": {
+        check_sliced_getpeers(client_soc)
+        break;
+    }
 
-//Incomplete message - expecting improper format
-// test_incomplete_msg(client_soc, `{"type":"hello", "ver)\n`);
-
-//Invalid message because newline - expecting improper format
-// test_complete_msg(client_soc, `{"type":"hello",\n "version":"0.8.0"}`);
-
-// Invalid hello - expecting improper format
-// test_complete_msg(client_soc, `{"type":"hello", "version":"jd3.x"}`)
-
-// TODO: FAILING THIS TEST
-// making sure getpeers responds appropriately even with an imperfect message
-// check_getpeers_response(client_soc)
-
-// TODO: FAILING THIS TEST
-// should timeout after receiving partial message
-// check_timeout(client_soc)
+    default: {
+        console.log("test not specified"); 
+        break;
+    }
+}
