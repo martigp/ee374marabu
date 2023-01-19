@@ -63,6 +63,8 @@ export class MarabuMessageProcessor {
                 let port = split_peer[1];
                 if(isIP(host)) {
                     let new_client = new MarabuClient();
+                    // Might want to edit this to close once received a message
+                    // I guess it has a timeout so that works
                     new_client.connect(Number(port), host);
                 }
                 cnt += 1;
@@ -96,7 +98,7 @@ export class MarabuMessageProcessor {
                             destroy_soc(socket, "INVALID_FORMAT", `Invalid Hello Version`);
                             return false;
                         }
-                        console.log(`Remote ${server ? "Server" : "Client"} Hello Received`);
+                        console.log(`Remote ${server ? "Client" : "Server"} Hello Received`);
                         return true;
                     }
                 };
@@ -165,13 +167,13 @@ export class MarabuMessageProcessor {
                 case "peers": { 
                     let parsed_msg = mess.zPeersMessage.safeParse(msg);
                     if(parsed_msg.success) {
-                        console.log(`Processing ${server ? "Server" : "Client"} peers Message`);
+                        console.log(`Processing ${server ? "Client" : "Server"} peers Message`);
                         return this.process_peers(parsed_msg.data);
                     }
                     break; 
                 } 
                 case "getpeers": { 
-                    console.log(`Processing ${server ? "Server" : "Client"} getpeers Message`);
+                    console.log(`Processing ${server ? "Client" : "Server"} getpeers Message`);
                     let parsed_msg = mess.zMessage.safeParse(msg);
                     if(parsed_msg.success) {
                         return this.process_getpeers(socket);

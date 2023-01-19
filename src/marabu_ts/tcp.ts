@@ -36,7 +36,7 @@ export function tcp_responder(socket : net.Socket, buffer : string, hello_rcvd :
     socket.on('data', (data) => {
         buffer += data;
         const messages = buffer.split('\n');
-        console.log(`Remote ${server ? "Server" : "Client"} messages received: ${messages}`);
+        console.log(`Remote ${server ? "Client" : "Server"} messages received: ${messages}`);
         // Empty string if last character is '\n'
         if (messages.length > 1) {
             // Catch any exceptions from JSON parsing
