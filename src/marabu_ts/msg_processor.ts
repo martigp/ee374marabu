@@ -56,6 +56,7 @@ export class MarabuMessageProcessor {
             console.log("About to peer again");
             let cnt = 0;
             for(const peer of valid_peers) {
+                if(existingpeers.includes(peer)) continue; 
                 let split_peer = peer.split(':');
                 let host = split_peer[0];
                 let port = split_peer[1];
