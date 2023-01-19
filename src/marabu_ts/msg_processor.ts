@@ -127,12 +127,9 @@ export class MarabuMessageProcessor {
         if ("type" in msg) {
             switch(msg.type) { 
                 case "hello": {
-                    let parsed_msg = mess.zHelloMessage.safeParse(msg)
+                    let parsed_msg = mess.zHelloMessage.safeParse(msg);
                     if(parsed_msg.success) {
-                        if(this.process_hello(parsed_msg.data)) {
-                            destroy_soc(socket, "INVALID_FORMAT", "Hello already sent");
-                            return false;
-                        }
+                        valid_format = this.process_hello(parsed_msg.data);
                     }
                     break;
                 } 
