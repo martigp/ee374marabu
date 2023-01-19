@@ -41,9 +41,9 @@ export class MarabuMessageProcessor {
                 };
               }
         
-            var finalPeers: string[] = newPeers.concat(existingpeers); 
+            var finalPeers: string[] = valid_peers.concat(existingpeers); 
         
-            finalPeers = [...new Set([...newPeers,...existingpeers])];
+            finalPeers = [...new Set([...valid_peers,...existingpeers])];
         
             const peersString = { //create JSON object 
                 peers: finalPeers,
