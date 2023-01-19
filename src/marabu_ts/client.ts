@@ -16,8 +16,8 @@ export class MarabuClient {
         this.hello_rcvd = false;
     }
 
-    connect() {
-        this.socket.connect(HARDCODE_PORT, HARDCODE_HOST,() => {
+    connect(port : number = HARDCODE_PORT, host : string = HARDCODE_HOST) {
+        this.socket.connect(port, host,() => {
             this.socket.setTimeout(DEFAULT_TIMEOUT);
             console.log("Connected to foreign Server");
             send_hello(this.socket, false);

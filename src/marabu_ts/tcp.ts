@@ -27,7 +27,6 @@ export function send_get_peers(socket: net.Socket) {
 }
 
 export function send_peers(socket: net.Socket, peers: Array<string>) {
-    console.log(`Sending peers:\n${peers}`);
     let peers_msg = PEERS;
     peers_msg.peers = peers;
     socket.write(`${canonicalize(peers_msg)}\n`);
