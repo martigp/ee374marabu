@@ -18,16 +18,14 @@ export function send_hello(socket: net.Socket, server: boolean) {
     let hello = HELLO;
     HELLO.agent = `Marabu ${server ? "Server" : "Client"} 0.9.0`;
     socket.write(`${canonicalize(hello)}\n`);
-    console.log(`${server ? "Server" : "Client"} hello sent`);
+    //console.log(`${server ? "Server" : "Client"} hello sent`);
 }
 
 export function send_get_peers(socket: net.Socket) {
     socket.write(`${canonicalize(GET_PEERS)}\n`);
-    console.log("Get peers sent")
 }
 
 export function send_peers(socket: net.Socket, peers: Array<string>) {
-    console.log(`Sending peers:\n${peers}`);
     let peers_msg = PEERS;
     peers_msg.peers = peers;
     socket.write(`${canonicalize(peers_msg)}\n`);
@@ -38,7 +36,7 @@ export function tcp_responder(socket : net.Socket, buffer : string, hello_rcvd :
     socket.on('data', (data) => {
         buffer += data;
         const messages = buffer.split('\n');
-        console.log(`${server ? "Server" : "Client"} messages received: ${messages}`);
+        console.log(`Remote ${server ? "Server" : "Client"} messages received: ${messages}`);
         // Empty string if last character is '\n'
         if (messages.length > 1) {
             // Catch any exceptions from JSON parsing
@@ -73,6 +71,6 @@ export function tcp_responder(socket : net.Socket, buffer : string, hello_rcvd :
         console.error(`${server ? "Client" : "Server"} error: ${error}`)
     });
     socket.on('close', () =>{
-        console.error(`${server ? "Client" : "Server"} disconnected`);
+        console.error(`Remote ${server ? "Client" : "Server"} disconnected`);
     });
 }
