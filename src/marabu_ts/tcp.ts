@@ -16,7 +16,7 @@ const PEERS = {"type": "peers", "peers": [""] };
 
 export function send_hello(socket: net.Socket, server: boolean) {
     let hello = HELLO;
-    HELLO.agent = `Maribu ${server ? "Server" : "Client"} 0.9.0`;
+    HELLO.agent = `Marabu ${server ? "Server" : "Client"} 0.9.0`;
     socket.write(`${canonicalize(hello)}\n`);
     console.log(`${server ? "Server" : "Client"} hello sent`);
 }
