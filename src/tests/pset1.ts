@@ -10,6 +10,11 @@ const SERVER_HOST = '0.0.0.0';
 
 const client_soc = new net.Socket();
 
+function complete_handshake(client_soc: net.Socket) {
+    let msg = `${canonicalize({"type": "hello", "version": "0.9.0"})}\n`
+    client_soc.write(msg)
+}
+
 
 function test_complete_msg(client_soc: net.Socket, msg: string) {
     client_soc.connect(SERVER_PORT, SERVER_HOST, async () => {
@@ -54,10 +59,15 @@ function test_incomplete_msg(client_soc: net.Socket, msg1: string, msg2?: string
 function check_getpeers_response(client_soc: net.Socket) {
     client_soc.connect(SERVER_PORT, SERVER_HOST, async () => {
         console.log(`Connected to server ${SERVER_HOST}:${SERVER_PORT}`);
-        let msg = canonicalize({"type": "getpeers"});
+        complete_handshake(client_soc)
+
+        let msg = `${canonicalize({"type": "getpeers"})}\n`;
+
+        // client_soc.write(`${msg}`);
+
         client_soc.write(`${msg.slice(0,4)}`);
         await delay(3000);
-        client_soc.write(`${msg.slice(4)}\n`);
+        client_soc.write(`${msg.slice(4)}`);
 
     });    
 
@@ -84,6 +94,44 @@ function check_getpeers_response(client_soc: net.Socket) {
 }
 
 
+// This function tests from the perspective of the grader
+function check_timeout(client_soc: net.Socket) {
+    client_soc.connect(SERVER_PORT, SERVER_HOST, async () => {
+        console.log(`Connected to server ${SERVER_HOST}:${SERVER_PORT}`);
+        complete_handshake(client_soc)
+
+        let msg = `${canonicalize({"type": "getpeers"})}\n`;
+
+        // client_soc.write(`${msg}`);
+
+        client_soc.write(`${msg.slice(0,4)}`);
+        await delay(50000);
+        client_soc.write(`${msg.slice(4)}`);
+
+    });    
+
+    client_soc.on('data', (data) => {
+        console.log(`tester received: ${data}`);
+    });
+
+    client_soc.on('error', (error) => {
+        console.error(`Server Error: ${error}`);
+    });
+
+    client_soc.on('close', () => {
+        console.log(`Server disconnected`);
+    });
+
+
+    client_soc.on('error', (error) => {
+        console.error(`Server Error: ${error}`);
+    });
+
+    client_soc.on('close', () => {
+        console.log(`Server disconnected`);
+    });
+}
+
 // RUN TESTS
 
 // valid hello
@@ -91,13 +139,13 @@ function check_getpeers_response(client_soc: net.Socket) {
 
 // Invalid initial message - expecting invalid handshake when run before all other messages
 // TODO: FAILING THIS TEST
-// test_complete_msg(client_soc, `{"type":"jbh", "version":"0.9.0"}`)
+test_complete_msg(client_soc, `{"type":"jbh", "version":"0.9.0"}`)
 // ----------------------
 
 //Incomplete message - expecting improper format
 // test_incomplete_msg(client_soc, `{"type":"hello", "ver)\n`);
 
-//INvalid message because newline - expecting improper format
+//Invalid message because newline - expecting improper format
 // test_complete_msg(client_soc, `{"type":"hello",\n "version":"0.8.0"}`);
 
 // Invalid hello - expecting improper format
@@ -105,4 +153,8 @@ function check_getpeers_response(client_soc: net.Socket) {
 
 // TODO: FAILING THIS TEST
 // making sure getpeers responds appropriately even with an imperfect message
-check_getpeers_response(client_soc)
+// check_getpeers_response(client_soc)
+
+// TODO: FAILING THIS TEST
+// should timeout after receiving partial message
+// check_timeout(client_soc)

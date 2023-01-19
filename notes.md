@@ -29,7 +29,3 @@ the received message is not a valid JSON or doesn’t parse into one of the vali
 - If a connected node sends any other message of a valid format prior to the hello message, you must send an "INVALID_HANDSHAKE" error message to the node and then close the connection with that node. (However, if the message is not properly formatted, just send an "INVALID_FORMAT" error).
 
 ----------------------------
-## Vultr
-Restarting the system to load the new kernel will     │ 
- │ not be handled automatically, so you should consider  │ 
- │ rebooting.  
