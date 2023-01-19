@@ -139,7 +139,7 @@ function check_timeout(client_soc: net.Socket) {
 
 // Invalid initial message - expecting invalid handshake when run before all other messages
 // TODO: FAILING THIS TEST
-test_complete_msg(client_soc, `{"type":"jbh", "version":"0.9.0"}`)
+test_complete_msg(client_soc, `{"type":"jbh", "version":"0.9.0"}\n`)
 // ----------------------
 
 //Incomplete message - expecting improper format
