@@ -1,11 +1,24 @@
 {
-  "name": "pset2",
+  "name": "malibu",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "ts-node src/index.ts",
+    "test": "ts-node src/testing.ts"
   },
-  "author": "",
-  "license": "ISC"
+  "author": "Dionysis Zindros",
+  "license": "MIT",
+  "dependencies": {
+    "@types/node": "^17.0.23",
+    "@types/semver": "^7.3.9",
+    "blake2": "^4.1.1",
+    "is-valid-hostname": "^1.0.2",
+    "json-canonicalize": "^1.0.4",
+    "level-ts": "^2.1.0",
+    "net": "^1.0.2",
+    "runtypes": "^6.5.1",
+    "semver": "^7.3.5",
+    "winston": "^3.8.2"
+  }
 }
