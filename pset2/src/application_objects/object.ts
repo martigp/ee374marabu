@@ -1,14 +1,15 @@
-import {IInput, zInput} from './input';
-import {IOutput, zOutput} from './output';
+import {IInput,} from './input';
+import {IOutput,} from './output';
 import { z } from 'zod';
+import { type } from 'os';
 
 export interface IApplicationObject {
     type : string;
 }
 
-export const zApplicationObject = z.object({
-    type : z.string(),
-});
+export function createObject(obj: IApplicationObject){ 
+    type: type; 
+}
 
 export interface IBlockObject extends IApplicationObject {
     txids : Array<string>;
@@ -20,22 +21,8 @@ export interface IBlockObject extends IApplicationObject {
     note: string; 
 }
 
-export const zBlockObject = zApplicationObject.extend({
-    txids : z.array(z.string()),
-    nonce : z.string(),
-    previd: z.string(),
-    created : z.number(),
-    target : z.string(),
-    miner: z.string(),
-    note: z.string(),
-});
 
 export interface ITxObject extends IApplicationObject {
     inputs : Array<IInput>
     outputs : Array<IOutput>
 }
-
-export const zTxObject = zApplicationObject.extend({
-    inputs : z.array(zInput),
-    outputs : z.array(zOutput),
-});

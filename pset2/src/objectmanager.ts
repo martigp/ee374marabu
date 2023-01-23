@@ -27,11 +27,12 @@ class ObjectManager {
   
   getObjectID(object: object){ 
     const object_canon: string = canonicalize(object)
-    var blake2 = require('blake2');
     logger.info(`Attempting to hash hashed from ${object_canon}`)
-    var objectid = blake2.createHash('blake2s', Buffer.from(object_canon));
+    var blake2 = require('blake2');
+    var h = blake2.createHash('blake2s');
+    h.update(Buffer.from(object_canon));
+    var objectid = h.digest("hex")
     logger.info(`Attempting to hash hashed to ${objectid}`)
-
     return objectid; 
   }
   objectDiscovered(object: Object, objectid: String) {
@@ -51,6 +52,7 @@ class ObjectManager {
         logger.info(`Attempting to gossip to peer: ${peerAddr} with objectid: ${objectid}`)
         try {
           const peer = new Peer(MessageSocket.createClient(peerAddr)) //TODO: do we have to create a whole new peer/attempt a connection
+          peer.sendHello(); 
           peer.sendIHaveObject(objectid); 
         }
         catch (e: any) {
