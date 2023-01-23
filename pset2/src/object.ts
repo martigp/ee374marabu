@@ -1,4 +1,12 @@
 
+export class ApplicationObject {
+    type : string;
+
+    constructor(type: string) {
+        this.type = type;
+}
+}
+
 
 export interface IOutpoint {
     txid : string;
@@ -10,11 +18,7 @@ export interface IInput {
     sig : string;
 }
 
-export interface IApplicationObject {
-    type : string;
-}
-
-export interface IBlockObject extends IApplicationObject {
+export interface IBlockObject extends ApplicationObject {
     txids : Array<string>;
     nonce : string;
     previd: string;
@@ -31,7 +35,7 @@ export interface IOutput {
 }
 
 
-export interface ITxObject extends IApplicationObject {
+export interface ITxObject extends ApplicationObject {
     inputs : Array<IInput>
     outputs : Array<IOutput>
 }
