@@ -2,7 +2,7 @@ import net from 'net';
 import fs from 'fs';
 import { canonicalize } from "json-canonicalize";
 import * as mess from './messages/message';
-import { destroy_soc } from './error';
+import { DEFAULT_TIMEOUT, destroy_soc } from './error';
 import { MarabuMessageProcessor } from './msg_processor';
 
 /*
@@ -18,30 +18,34 @@ export function send_hello(socket: net.Socket, server: boolean) {
     let hello = HELLO;
     HELLO.agent = `Maribu ${server ? "Server" : "Client"} 0.9.0`;
     socket.write(`${canonicalize(hello)}\n`);
-    console.log(`${server ? "Server" : "Client"} hello sent`);
+    //console.log(`${server ? "Server" : "Client"} hello sent`);
 }
 
 export function send_get_peers(socket: net.Socket) {
     socket.write(`${canonicalize(GET_PEERS)}\n`);
-    console.log("Get peers sent")
 }
 
 export function send_peers(socket: net.Socket, peers: Array<string>) {
-    console.log(`Sending peers:\n${peers}`);
     let peers_msg = PEERS;
     peers_msg.peers = peers;
     socket.write(`${canonicalize(peers_msg)}\n`);
 }
 
 export function tcp_responder(socket : net.Socket, buffer : string, hello_rcvd : boolean, server: boolean) {
+    socket.setTimeout(DEFAULT_TIMEOUT, ()=> {
+        socket.destroy();
+    });
     let msg_processor = new MarabuMessageProcessor();
     socket.on('data', (data) => {
         buffer += data;
         const messages = buffer.split('\n');
-        console.log(`${server ? "Server" : "Client"} messages received: ${messages}`);
+        console.log(`Remote ${server ? "Client" : "Server"} messages received: ${messages}`);
         // Empty string if last character is '\n'
         if (messages.length > 1) {
             // Catch any exceptions from JSON parsing
+            console.log(hello_rcvd);
+            console.log(messages[0]);
+            let start_ind = 0;
             try {
                 if(!hello_rcvd) {
                     let first_msg : mess.IMessage = JSON.parse(messages[0]);
@@ -50,10 +54,13 @@ export function tcp_responder(socket : net.Socket, buffer : string, hello_rcvd :
                         return;
                     }
                     hello_rcvd = true;
+                    start_ind = 1;
                 }
-                for(const message of messages.slice(Number(hello_rcvd), -1)) {
+                console.log()
+                for(const message of messages.slice(start_ind, -1)) {
                     // Process each message accordingly
                     let json_msg = JSON.parse(message);
+                    console.log(message);
                     if(!msg_processor.process_msg(socket, json_msg, server)) {
                         buffer = '';
                         return;
@@ -73,6 +80,10 @@ export function tcp_responder(socket : net.Socket, buffer : string, hello_rcvd :
         console.error(`${server ? "Client" : "Server"} error: ${error}`)
     });
     socket.on('close', () =>{
-        console.error(`${server ? "Client" : "Server"} disconnected`);
+        console.error(`Remote ${server ? "Client" : "Server"} disconnected`);
     });
+    socket.on('timeout', () =>{
+        console.log("Timeout response called");
+    }
+    );
 }

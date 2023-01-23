@@ -3,6 +3,12 @@ import net from 'net';
 import { destroy_soc } from "./error";
 import { send_peers } from "./tcp";
 import fs from 'fs';
+import { check_marabu_peer } from "./check_marabu_peer";
+import { isIP } from "net";
+import { MarabuClient } from "./client";
+
+const MAX_NEW_PEERS = 20;
+
 export class MarabuMessageProcessor {
     constructor() {}
 
@@ -30,15 +36,39 @@ export class MarabuMessageProcessor {
             var jsondata = JSON.parse(fs.readFileSync('src/peers.json', 'utf-8')); 
     
             var existingpeers = jsondata.peers; 
+            
+            let valid_peers: string[] = [];
+
+            for (var peer_id of newPeers) {
+                if(check_marabu_peer(peer_id)){
+                    valid_peers.push(peer_id);
+                };
+              }
         
-            var finalPeers: string[] = newPeers.concat(existingpeers); 
+            var finalPeers: string[] = valid_peers.concat(existingpeers); 
         
-            finalPeers = [...new Set([...newPeers,...existingpeers])];
+            finalPeers = [...new Set([...valid_peers,...existingpeers])];
         
             const peersString = { //create JSON object 
                 peers: finalPeers,
             }
             fs.writeFileSync("src/peers.json", JSON.stringify(peersString));
+            console.log("About to peer again");
+            let cnt = 0;
+            for(const peer of valid_peers) {
+                if(existingpeers.includes(peer)) continue; 
+                let split_peer = peer.split(':');
+                let host = split_peer[0];
+                let port = split_peer[1];
+                if(isIP(host)) {
+                    let new_client = new MarabuClient();
+                    // Might want to edit this to close once received a message
+                    // I guess it has a timeout so that works
+                    new_client.connect(Number(port), host);
+                }
+                cnt += 1;
+                if(cnt >= MAX_NEW_PEERS) break;
+            }
         }
         catch(e) {
             // Don't destroy socket in these cases, should this be a little less crude
@@ -67,7 +97,7 @@ export class MarabuMessageProcessor {
                             destroy_soc(socket, "INVALID_FORMAT", `Invalid Hello Version`);
                             return false;
                         }
-                        console.log(`${server ? "Server" : "Client"} Hello Received`);
+                        console.log(`Remote ${server ? "Client" : "Server"} Hello Received`);
                         return true;
                     }
                 };
@@ -75,7 +105,7 @@ export class MarabuMessageProcessor {
                     valid_format = mess.zPeersMessage.safeParse(msg).success;
                     break;
                 }
-                case "get_peers": {
+                case "getpeers": {
                     valid_format = mess.zMessage.safeParse(msg).success;
                     break;
                 }
@@ -125,27 +155,25 @@ export class MarabuMessageProcessor {
     process_msg(socket : net.Socket, msg: any, server: boolean) : boolean {
         let valid_format = false
         if ("type" in msg) {
+            console.log(msg.type)
             switch(msg.type) { 
                 case "hello": {
-                    let parsed_msg = mess.zHelloMessage.safeParse(msg)
+                    let parsed_msg = mess.zHelloMessage.safeParse(msg);
                     if(parsed_msg.success) {
-                        if(this.process_hello(parsed_msg.data)) {
-                            destroy_soc(socket, "INVALID_FORMAT", "Hello already sent");
-                            return false;
-                        }
+                        valid_format = this.process_hello(parsed_msg.data);
                     }
                     break;
                 } 
                 case "peers": { 
                     let parsed_msg = mess.zPeersMessage.safeParse(msg);
                     if(parsed_msg.success) {
-                        console.log(`Processing ${server ? "Server" : "Client"} peers Message`);
+                        console.log(`Processing ${server ? "Client" : "Server"} peers Message`);
                         return this.process_peers(parsed_msg.data);
                     }
                     break; 
                 } 
                 case "getpeers": { 
-                    console.log(`Processing ${server ? "Server" : "Client"} getpeers Message`);
+                    console.log(`Processing ${server ? "Client" : "Server"} getpeers Message`);
                     let parsed_msg = mess.zMessage.safeParse(msg);
                     if(parsed_msg.success) {
                         return this.process_getpeers(socket);
@@ -158,10 +186,10 @@ export class MarabuMessageProcessor {
                 } 
             }
     }
-        if(!valid_format) {
-            destroy_soc(socket, "INVALID_FORMAT", `Message formatted incorrectly`);
-        }
-        // Will want to do some checking in the future on return valid of 
-        return true;
+    if(!valid_format) {
+        destroy_soc(socket, "INVALID_FORMAT", `Message formatted incorrectly`);
+    }
+    // Will want to do some checking in the future on return valid of 
+    return true;
     }
 }
