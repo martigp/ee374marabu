@@ -16,10 +16,10 @@ function test_ihaveobject_msg (client_soc: net.Socket) {
         let message: String = canonicalize({"agent":"Malibu (pset1)","type":"hello","version":"0.9.0"}); 
         client_soc.write((`${message}\n`));
 
-        let message1: string = canonicalize({"type": "ihaveobject", "objectid": "36496e13e8ad98f75321264b0a7980bfe25d4f1226ad1f8da1d8cdb82d8119ec"}); 
+        let message1 : String = canonicalize({"type": "ihaveobject", "objectid": "36496e13e8ad98f75321264b0a7980bfe25d4f1226ad1f8da1d8cdb82d8119ec"}); 
         client_soc.write((`${message1}\n`));
         
-        let message2: string = canonicalize({
+        let message2: String = canonicalize({
             "type": "object",
             "object": {
               "type": "block",
@@ -28,7 +28,7 @@ function test_ihaveobject_msg (client_soc: net.Socket) {
               ],
               "nonce": "a26d92800cf58e88a5ecf37156c031a4147c2128beeaf1cca2785c93242a4c8b",
               "previd": "0024839ec9632d382486ba7aac7e0bda3b4bda1d4bd79be9ae78e7e1e813ddd8",
-              "created": "1622825642",
+              "created": 1622825642,
               "T": "003a000000000000000000000000000000000000000000000000000000000000"
             }
           }); 
@@ -85,9 +85,23 @@ function test_shrek2 (obj: Object) {
     logger.info(`Attempting to hash hashed to ${objectid}`)
 }
 
+function test_transactions(client_soc: net.Socket){ 
+    console.log(`Connecting....`);
+    client_soc.connect(SERVER_PORT, SERVER_HOST, async () => {
+        console.log(`Connected to server ${SERVER_HOST}:${SERVER_PORT}`);
+        let message: String = canonicalize({"agent":"Malibu (pset1)","type":"hello","version":"0.9.0"}); 
+        client_soc.write((`${message}\n`));
+
+        let message1: String = canonicalize({"type": "object", "object": {"height":0,"outputs":[{"pubkey":"958f8add086cc348e229a3b6590c71b7d7754e42134a127a50648bf07969d9a0","value":50000000000}],"type":"transaction"}}); 
+        client_soc.write((`${message1}\n`));
+});
+}
+
+test_transactions(client_soc);
+
 //test_getobject (client_soc); 
 
-test_ihaveobject_msg (client_soc); 
+//test_ihaveobject_msg (client_soc); 
 /*test_shrek2({
     "type": "block",
     "txids": [
