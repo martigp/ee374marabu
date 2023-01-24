@@ -88,9 +88,9 @@ function test_shrek2 (obj: Object) {
     logger.info(`Attempting to hash hashed to ${objectid}`)
 }
 
-test_getobject (client_soc); 
+//test_getobject (client_soc); 
 
-//test_ihaveobject_msg (client_soc); 
+test_ihaveobject_msg (client_soc); 
 /*test_shrek2({
     "type": "block",
     "txids": [
