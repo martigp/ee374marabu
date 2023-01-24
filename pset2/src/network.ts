@@ -15,7 +15,7 @@ export class Network {
     await peerManager.load()
     await objectManager.load()
 
-    const server = net.createServer(socket => {
+    const server = net.createServer((socket) => {
       logger.info(`New connection from peer ${socket.remoteAddress}`)
       const peer = new Peer(new MessageSocket(socket, `${socket.remoteAddress}:${socket.remotePort}`))
       this.peers.push(peer)
