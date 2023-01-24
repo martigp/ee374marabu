@@ -45,17 +45,17 @@ class ApplicationObjectManager {
     this.gossipObject(object, objectid);
     }
 
-  gossipObject(object: Object, objectid: String ){ 
+  gossipObject(object: ApplicationObjectType, objectid: String ){ 
     for (const peerAddr of peerManager.knownPeers) {
         logger.info(`Attempting to gossip to peer: ${peerAddr} with objectid: ${objectid}`)
         try {
-          const peer = new Peer(MessageSocket.createClient(peerAddr)) //TODO: do we have to create a whole new peer/attempt a connection
-          peer.sendHello(); 
+          const peer = new Peer(MessageSocket.createClient(peerAddr)) 
           peer.sendIHaveObject(objectid); 
         }
         catch (e: any) {
           logger.warn(`Failed to gossip to peer ${peerAddr}: ${e.message}`)
         }
+        break;
     }
   }
 }

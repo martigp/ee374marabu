@@ -14,7 +14,7 @@ export type TxObjectType = Static<typeof TxObject>
 export const CoinbaseObject = Record({
     type: Literal('transaction'),
     height: Number,
-    output: Array(Output)
+    outputs: Array(Output)
 })
 
 export type CoinbaseObjectType = Static<typeof CoinbaseObject>
