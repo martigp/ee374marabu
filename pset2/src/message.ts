@@ -35,6 +35,7 @@ export type IHaveObjectMessageType = Static<typeof IHaveObjectMessage>
 
 export const ObjectMessage = Record({
   type: Literal('object'),
+  object: ApplicationObject 
 })
 
 export type ObjectMessageType = Static<typeof ObjectMessage>

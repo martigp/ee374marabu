@@ -115,7 +115,7 @@ export class Peer {
     )(msg)
   }
   async onMessageHello(msg: mess.HelloMessageType) {
-    if (!semver.satisfies(msg.version, `^${VERSION}`)) {
+    if (!/0\.9\.0/.test(msg.version)) {
       return await this.fatalError(new mess.AnnotatedError('INVALID_FORMAT', `You sent an incorrect version (${msg.version}), which is not compatible with this node's version ${VERSION}.`))
     }
     this.info(`Handshake completed. Remote peer running ${msg.agent} at protocol version ${msg.version}`)
@@ -170,7 +170,7 @@ export class Peer {
     this.warn(`Peer reported error: ${msg.name}`)
   }
   log(level: string, message: string) {
-    logger.log(level, `[peer ${this.socket.peerAddr}:${this.socket.netSocket.remotePort}] ${message}`)
+    logger.log(level, `[peer ${this.socket.peerAddr}] ${message}`)
   }
   warn(message: string) {
     this.log('warn', message)
