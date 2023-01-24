@@ -7,9 +7,10 @@ import { canonicalize } from 'json-canonicalize'
 import { objectManager } from './objectmanager'
 import * as obj from './application_objects/object'
 import * as ed from '@noble/ed25519'
+import { Union } from 'runtypes'
 
 const VERSION = '0.9.0'
-const NAME = 'Malibu (pset1)'
+const NAME = 'Gordon & Mapau'
 
 export class Peer {
   active: boolean = false
@@ -184,28 +185,40 @@ export class Peer {
   onBlockObject(object : obj.BlockObjectType, objectid : String) {
     logger.debug(`Received Block object: ${canonicalize(object)}`);
     objectManager.objectDiscovered(object, objectid);
+    this.socket.emit('gossip', {
+      type: 'ihaveobject',
+      objectid: objectid 
+    });
   }
 
   onCoinbaseObject(object : obj.CoinbaseObjectType, objectid : String) {
     logger.debug(`Received Coinbase object:  ${canonicalize(object)}`);
     objectManager.objectDiscovered(object, objectid);
+    this.socket.emit('gossip', {
+      type: 'ihaveobject',
+      objectid: objectid 
+    });
   }
 
-  verify_sig(sig : string, noPubKeyTx : any, pubkey: string) : Promise<boolean> {
-    let char_array : string[] = canonicalize(noPubKeyTx).split("");
+  verify_sig(sig : string, noSigTx : any, pubkey: string) : Promise<boolean> {
+    let char_array : string[] = canonicalize(noSigTx).split("");
     logger.debug(`Verifying sig, message char array ${char_array}`)
     var hex_message = Uint8Array.from(char_array.map(x => x.charCodeAt(0)))
+    logger.debug(`Verifying sig,hex_message ${hex_message}`)
     return ed.verify(sig, hex_message, pubkey)
   }
 
   async onTxObject(object : obj.TxObjectType, objectid : String) {
-    const noPubKeyTx = JSON.parse(JSON.stringify(object));
-    for (const output of noPubKeyTx.outputs) {
-      output.pubkey = null;
+
+    // Get signed message but nullify the pubkey
+    const noSigTx = JSON.parse(JSON.stringify(object));
+    for (const input of noSigTx.inputs) {
+      input.sig = null;
     }
 
     let sumInputs = 0;
     let inputNo = 0;
+    logger.debug(`The inputs ${canonicalize(object.inputs)}`)
     for(const input of object.inputs) {
       let res = objectManager.getObject(input.outpoint.txid)
       if(!res.success) {
@@ -213,26 +226,30 @@ export class Peer {
         `Input Objectid ${input.outpoint.txid} not found locally`));
       }
       let storedInput = res.object;
-      if(obj.TxObject.guard(storedInput)) {
-        if (storedInput.outputs.length <= input.outpoint.index)
+      logger.debug(`Stored boject ${canonicalize(storedInput)}`)
+      if(Union(obj.TxObject, obj.CoinbaseObject).guard(storedInput)) {
+        if (storedInput.outputs.length <= input.outpoint.index) {
           return await this.fatalError(new mess.AnnotatedError('INVALID_TX_OUTPOINT',
                                           `Index ${input.outpoint.index} too large`));
+        }
 
-        let valid_sig : boolean = await this.verify_sig(input.sig, noPubKeyTx,
+        let valid_sig : boolean = await this.verify_sig(input.sig, noSigTx,
                     storedInput.outputs[input.outpoint.index].pubkey);
 
-        if(!valid_sig)
+        if(!valid_sig) {
           return await this.fatalError(new mess.AnnotatedError('INVALID_TX_SIGNATURE',
-                                          `Bad sig on ${noPubKeyTx}`));
+                                          `Bad sig on ${noSigTx}`));
+        }
 
         let val = storedInput.outputs[input.outpoint.index].value;
         
-        if (val < 0)
+        if (val < 0) {
           return await this.fatalError(new mess.AnnotatedError('INVALID_FORMAT',
                                           `${val} less than zero on input ${inputNo}`));
-        
-
+        }
+      
         sumInputs += storedInput.outputs[input.outpoint.index].value;
+        logger.debug(`Input with value ${storedInput.outputs[input.outpoint.index].value} verified`)
       }
       inputNo += 1;
     }
@@ -242,9 +259,10 @@ export class Peer {
     let sumOutputs = 0;
     let outputNo = 0;
     for(const output of object.outputs) {
-      if (output.value < 0)
+      if (output.value < 0) {
         return await this.fatalError(new mess.AnnotatedError('INVALID_FORMAT',
                                           `${output.value} less than zero on output ${outputNo}`));
+      }
       sumOutputs += output.value;
       outputNo += 1;
     }
@@ -253,7 +271,6 @@ export class Peer {
       return await this.fatalError(new mess.AnnotatedError('INVALID_TX_CONSERVATION',`, Inputs: ${sumInputs}, Outputs: ${sumOutputs}`));
     
     objectManager.objectDiscovered(object, objectid);
-
     this.socket.emit('gossip', {
       type: 'ihaveobject',
       objectid: objectid 

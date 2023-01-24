@@ -4,6 +4,7 @@ import { Peer } from './peer'
 import { EventEmitter } from 'events'
 import { peerManager } from './peermanager'
 import { objectManager } from './objectmanager'
+import { canonicalize } from 'json-canonicalize'
 
 const TIMEOUT_DELAY = 10000 // 10 seconds
 const MAX_BUFFER_SIZE = 100 * 1024 // 100 kB
@@ -23,7 +24,9 @@ export class Network {
       this.peers.push(peer)
       peer.onConnect()
       peer.socket.on('gossip', (gossipMsg) => {
+        logger.debug(`Gossip event received with msg ${canonicalize(gossipMsg)}`);
         for(const gossipPeer of this.peers) {
+          logger.info(`Attempting to gossip to peer: ${gossipPeer.socket.peerAddr}`)
           gossipPeer.socket.sendMessage(gossipMsg);
         }
       });
@@ -39,9 +42,11 @@ export class Network {
         const peer = new Peer(MessageSocket.createClient(peerAddr))
         this.peers.push(peer)
         peer.socket.on('gossip', (gossipMsg) => {
+          logger.debug(`Gossip event received with msg ${canonicalize(gossipMsg)}`);
+          logger.debug(`List of peers sending to:\n${this.peers}`);
           for(const gossipPeer of this.peers) {
             logger.info(`Attempting to gossip to peer: ${gossipPeer.socket.peerAddr}`)
-            gossipPeer.socket.sendMessage(gossipMsg);
+            gossipPeer.socket.sendMessage(canonicalize(gossipMsg));
           }
         });
       }
