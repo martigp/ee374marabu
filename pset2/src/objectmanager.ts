@@ -6,10 +6,9 @@ import { peerManager } from './peermanager'
 import { Peer } from './peer'
 import { MessageSocket } from './network'
 import { transactionManager } from './transactionmanager'
-import * as obj from './application_objects/object'
 import * as mess from './message'
+import * as obj from './application_objects/object'
 import * as ed from '@noble/ed25519'
-import { stringify } from 'querystring'
 
 
 class ApplicationObjectManager {
@@ -29,54 +28,6 @@ class ApplicationObjectManager {
   async store() {
     await db.put('objects', [...this.knownObjects])
   }
-
-  onBlockObject(object : obj.BlockObjectType) {
-    logger.debug(`Received Block object: ${canonicalize(object)}`);
-  }
-
-  onCoinbaseObject(object : obj.CoinbaseObjectType) {
-    logger.debug(`Received Coinbase object:  ${canonicalize(object)}`);
-  }
-
-  verify_sig(sig : string, noPubKeyTx : any, pubkey: string) : Promise<boolean> {
-    let char_array : string[] = canonicalize(noPubKeyTx).split("");
-    var hex_message = Uint8Array.from(char_array.map(x => x.charCodeAt(0)))
-    return ed.verify(sig, hex_message, pubkey)
-  }
-
-  async onTxObject(object : obj.TxObjectType) {
-    const noPubKeyTx = JSON.parse(JSON.stringify(object));
-    for (const output of noPubKeyTx.outputs) {
-      output.pubkey = null;
-    }
-
-    let sumInputs = 0;
-    for(const input of object.inputs) {
-      let storedInput = this.knownObjects.get(input.outpoint.txid);
-      if(storedInput === undefined)
-        // Return UKNOWN_OBJECT
-        return;
-      if(obj.TxObject.guard(storedInput)) {
-        if (storedInput.outputs.length <= input.outpoint.index)
-        // INVALID_TX_OUTPOINT
-          return;
-        let valid_sig : boolean = await this.verify_sig(input.sig, noPubKeyTx,
-                    storedInput.outputs[input.outpoint.index].pubkey);
-
-        if(!valid_sig)
-          // Return INVALID_TX_SIGNATURE
-          return;
-
-        sumInputs += storedInput.outputs[input.outpoint.index].value;
-      }
-    }
-
-    for(const output of object.outputs) {
-      // Outputs contain public key and value
-      //
-    }
-
-  }
   
   getObjectID(object: obj.ApplicationObjectType) : String { 
     const object_canon: string = canonicalize(object)
@@ -89,34 +40,16 @@ class ApplicationObjectManager {
     return objectid; 
   }
 
-  processObject(object : obj.ApplicationObjectType, objectid: String) {
-    obj.ApplicationObject.match(
-      this.onBlockObject.bind(this),
-      this.onTxObject.bind(this),
-      this.onCoinbaseObject.bind(this)
-    )(object);
-    this.objectDiscovered(object, objectid);
-
+  getObject(objectid: String) {
+      return {
+        "success" : this.knownObjects.has(objectid),
+        "object" : this.knownObjects.get(objectid)
+      }
   }
 
   objectDiscovered(object: obj.ApplicationObjectType, objectid: String) {
     this.knownObjects.set(objectid, object); 
-    this.store() 
-    this.gossipObject(object, objectid);
-  }
-
-  gossipObject(object: obj.ApplicationObjectType, objectid: String ){ 
-    for (const peerAddr of peerManager.knownPeers) {
-        logger.info(`Attempting to gossip to peer: ${peerAddr} with objectid: ${objectid}`)
-        try {
-          const peer = new Peer(MessageSocket.createClient(peerAddr)) 
-          peer.socket.on('handshake_complete', () => peer.sendIHaveObject(objectid));
-        }
-        catch (e: any) {
-          logger.warn(`Failed to gossip to peer ${peerAddr}: ${e.message}`)
-        }
-        break;
-    }
+    this.store();
   }
 
 }

@@ -22,6 +22,11 @@ export class Network {
       const peer = new Peer(new MessageSocket(socket, `${socket.remoteAddress}:${socket.remotePort}`))
       this.peers.push(peer)
       peer.onConnect()
+      peer.socket.on('gossip', (gossipMsg) => {
+        for(const gossipPeer of this.peers) {
+          gossipPeer.socket.sendMessage(gossipMsg);
+        }
+      });
     })
 
     logger.info(`Listening for connections on port ${bindPort} and IP ${bindIP}`)
@@ -33,6 +38,12 @@ export class Network {
       try {
         const peer = new Peer(MessageSocket.createClient(peerAddr))
         this.peers.push(peer)
+        peer.socket.on('gossip', (gossipMsg) => {
+          for(const gossipPeer of this.peers) {
+            logger.info(`Attempting to gossip to peer: ${gossipPeer.socket.peerAddr}`)
+            gossipPeer.socket.sendMessage(gossipMsg);
+          }
+        });
       }
       catch (e: any) {
         logger.warn(`Failed to create connection to peer ${peerAddr}: ${e.message}`)
