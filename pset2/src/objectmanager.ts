@@ -50,7 +50,7 @@ class ApplicationObjectManager {
         logger.info(`Attempting to gossip to peer: ${peerAddr} with objectid: ${objectid}`)
         try {
           const peer = new Peer(MessageSocket.createClient(peerAddr)) 
-          peer.sendIHaveObject(objectid); 
+          peer.socket.on('handshake_complete', () => peer.sendIHaveObject(objectid));
         }
         catch (e: any) {
           logger.warn(`Failed to gossip to peer ${peerAddr}: ${e.message}`)

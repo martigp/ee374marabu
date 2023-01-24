@@ -119,7 +119,8 @@ export class Peer {
       return await this.fatalError(new mess.AnnotatedError('INVALID_FORMAT', `You sent an incorrect version (${msg.version}), which is not compatible with this node's version ${VERSION}.`))
     }
     this.info(`Handshake completed. Remote peer running ${msg.agent} at protocol version ${msg.version}`)
-    this.handshakeCompleted = true
+    this.handshakeCompleted = true;
+    this.socket.emit('handshake_complete');
   }
   async onMessagePeers(msg: mess.PeersMessageType) {
     for (const peer of msg.peers) {
