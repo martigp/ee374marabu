@@ -136,6 +136,9 @@ export class Peer {
 
   async onMessageGetObject(msg: mess.GetObjectMessageType) {
     this.info(`Remote party is requesting object with ID ${msg.objectid}.`)
+    if (/[0-9a-f]{64}/.test(msg.objectid)) {
+      return await this.fatalError(new mess.AnnotatedError('INVALID_FORMAT', `Invalid blake2 hash for objectid`));
+    }
     if(objectManager.knownObjects.has(msg.objectid)){
       this.info(`I have object with ID ${msg.objectid}. Sharing`)
       await this.sendObject(msg.objectid)
@@ -147,7 +150,7 @@ export class Peer {
 
   async onMessageObject(msg: mess.ObjectMessageType) {
     this.info(`Remote party is sending object: ${msg.object}`)
-    let objectid: String = objectManager.getObjectID(Object(msg.object)) //TODO: fix this typing 
+    let objectid: String = objectManager.getObjectID(msg.object)
     if(!objectManager.knownObjects.has(objectid)){
       this.info(`I didn't have object with ID : ${objectid}. Saving object and gossiping to my peers`)
       objectManager.objectDiscovered(msg.object, objectid); //TODO: fix this typing 
@@ -158,7 +161,10 @@ export class Peer {
   }
 
   async onMessageIHaveObject(msg: mess.IHaveObjectMessageType) {
-    this.info(`Remote party is reporting knowledge of an object with ID ${msg.objectid}`)
+    this.info(`Remote party is reporting knowledge of an object with ID ${msg.objectid}`);
+    if (/[0-9a-f]{64}/.test(msg.objectid)) {
+      return await this.fatalError(new mess.AnnotatedError('INVALID_FORMAT', `Invalid blake2 hash for objectid`));
+    }
     if(!objectManager.knownObjects.has(msg.objectid)){ 
       this.info(`I dont have object with ID ${msg.objectid}. Requesting from remote party`)
       await this.sendGetObject(msg.objectid)

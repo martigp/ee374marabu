@@ -28,7 +28,7 @@ class ApplicationObjectManager {
     await db.put('objects', [...this.knownObjects])
   }
   
-  getObjectID(object: ApplicationObjectType){ 
+  getObjectID(object: ApplicationObjectType) : String { 
     const object_canon: string = canonicalize(object)
     logger.info(`Attempting to hash hashed from ${object_canon}`)
     var blake2 = require('blake2');
