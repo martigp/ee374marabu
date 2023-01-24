@@ -30,12 +30,12 @@ class ApplicationObjectManager {
     await db.put('objects', [...this.knownObjects])
   }
 
-  onBlockObject(object : obj.BlockObjectType, args : any[]) {
-    logger.debug(`Received Block object: ${args[0]}`);
+  onBlockObject(object : obj.BlockObjectType) {
+    logger.debug(`Received Block object: ${canonicalize(object)}`);
   }
 
-  onCoinbaseObject(object : obj.CoinbaseObjectType, args : any[]) {
-    logger.debug(`Received Coinbase object: ${args[0]}`);
+  onCoinbaseObject(object : obj.CoinbaseObjectType) {
+    logger.debug(`Received Coinbase object:  ${canonicalize(object)}`);
   }
 
   verify_sig(sig : string, noPubKeyTx : any, pubkey: string) : Promise<boolean> {
@@ -44,8 +44,7 @@ class ApplicationObjectManager {
     return ed.verify(sig, hex_message, pubkey)
   }
 
-  async onTxObject(object : obj.TxObjectType, args : any[0]) {
-    let objectid = args[0];
+  async onTxObject(object : obj.TxObjectType) {
     const noPubKeyTx = JSON.parse(JSON.stringify(object));
     for (const output of noPubKeyTx.outputs) {
       output.pubkey = null;
@@ -92,9 +91,9 @@ class ApplicationObjectManager {
 
   processObject(object : obj.ApplicationObjectType, objectid: String) {
     obj.ApplicationObject.match(
-      this.onBlockObject.bind(this,[objectid])
-      this.onTxObject.bind(this, [objectid]),
-      this.onCoinbaseObject.bind(this, [objectid])
+      this.onBlockObject.bind(this),
+      this.onTxObject.bind(this),
+      this.onCoinbaseObject.bind(this)
     )(object);
     this.objectDiscovered(object, objectid);
 
