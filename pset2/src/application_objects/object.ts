@@ -1,28 +1,31 @@
-import {IInput,} from './input';
-import {IOutput,} from './output';
-import { z } from 'zod';
-import { type } from 'os';
-
-export interface IApplicationObject {
-    type : string;
-}
-
-export function createObject(obj: IApplicationObject){ 
-    type: type; 
-}
-
-export interface IBlockObject extends IApplicationObject {
-    txids : Array<string>;
-    nonce : string;
-    previd: string;
-    created : Number;
-    target : string;
-    miner: string;
-    note: string; 
-}
+import { Input } from './input';
+import { Output } from './output';
+import { Literal, Record, String, Array, Union, Static, Void, Unknown, Number} from 'runtypes'
+import { optional } from 'zod';
 
 
-export interface ITxObject extends IApplicationObject {
-    inputs : Array<IInput>
-    outputs : Array<IOutput>
-}
+export const TxObject = Record({
+    type: Literal('transaction'), 
+    inputs : Array(Input),
+    outputs : Array(Output)
+}) 
+
+export type TxObjectType = Static<typeof TxObject>
+
+export const BlockObject = Record({
+    type: Literal('block'),
+    txids: Array(String),
+    nonce: String,
+    previd: String,
+    created: Number,
+    T: String
+    //miner: String,
+    //note: String
+  })
+
+export type BlockObjectType = Static<typeof BlockObject>
+
+export const ApplicationObject = Union(BlockObject, TxObject); 
+export type ApplicationObjectType = Static<typeof ApplicationObject>
+
+export const ApplicationObjects = [BlockObject, TxObject]

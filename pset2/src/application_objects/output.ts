@@ -1,6 +1,8 @@
-import { z } from "zod";
+import { Record, String, Static, Number} from 'runtypes'
 
-export interface IOutput {
-    pubkey: string;
-    value: Number;
-}
+export const Output = Record({
+    pubkey: String, 
+    value : Number
+})
+
+export type OutputType = Static<typeof Output>

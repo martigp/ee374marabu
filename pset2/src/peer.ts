@@ -1,9 +1,7 @@
 import { logger } from './logger'
 import { MessageSocket } from './network'
 import semver from 'semver'
-import { Messages,
-         Message, HelloMessage, PeersMessage, GetPeersMessage, ErrorMessage, ObjectMessage, GetObjectMessage, IHaveObjectMessage,
-         MessageType, HelloMessageType, PeersMessageType, GetPeersMessageType, ObjectMessageType, GetObjectMessageType, IHaveObjectMessageType, ErrorMessageType, AnnotatedError } from './message'
+import * as mess from './message'
 import { peerManager } from './peermanager'
 import { canonicalize } from 'json-canonicalize'
 import { objectManager } from './objectmanager'
@@ -54,11 +52,11 @@ export class Peer {
     })
   }
 
-  async sendError(err: AnnotatedError) {
+  async sendError(err: mess.AnnotatedError) {
     try {
       this.sendMessage(err.getJSON())
     } catch (error) {
-      this.sendMessage(new AnnotatedError('INTERNAL_ERROR', `Failed to serialize error message: ${error}`).getJSON())
+      this.sendMessage(new mess.AnnotatedError('INTERNAL_ERROR', `Failed to serialize error message: ${error}`).getJSON())
     }
   }
 
@@ -68,7 +66,7 @@ export class Peer {
     this.debug(`Sending message: ${message}`)
     this.socket.sendMessage(message)
   }
-  async fatalError(err: AnnotatedError) {
+  async fatalError(err: mess.AnnotatedError) {
     await this.sendError(err)
     this.warn(`Peer error: ${err}`)
     this.active = false
@@ -80,7 +78,7 @@ export class Peer {
     await this.sendGetPeers()
   }
   async onTimeout() {
-    return await this.fatalError(new AnnotatedError('INVALID_FORMAT', 'Timed out before message was complete'))
+    return await this.fatalError(new mess.AnnotatedError('INVALID_FORMAT', 'Timed out before message was complete'))
   }
   async onMessage(message: string) {
     this.debug(`Message arrival: ${message}`)
@@ -92,20 +90,21 @@ export class Peer {
       this.debug(`Parsed message into: ${JSON.stringify(msg)}`)
     }
     catch {
-      return await this.fatalError(new AnnotatedError('INVALID_FORMAT', `Failed to parse incoming message as JSON: ${message}`))
+      return await this.fatalError(new mess.AnnotatedError('INVALID_FORMAT', `Failed to parse incoming message as JSON: ${message}`))
     }
-    if (!Message.guard(msg)) {
-      return await this.fatalError(new AnnotatedError('INVALID_FORMAT', `The received message does not match one of the known message formats: ${message}`))
+    if (!mess.Message.guard(msg)) {
+      return await this.fatalError(new mess.AnnotatedError('INVALID_FORMAT', `The received message does not match one of the known message formats: ${message}`))
     }
     if (!this.handshakeCompleted) {
-      if (HelloMessage.guard(msg)) {
+      if (mess.HelloMessage.guard(msg)) {
         return this.onMessageHello(msg)
       }
-      return await this.fatalError(new AnnotatedError('INVALID_HANDSHAKE', `Received message ${message} prior to "hello"`))
+      return await this.fatalError(new mess.AnnotatedError('INVALID_HANDSHAKE', `Received message ${message} prior to "hello"`))
     }
-    Message.match(
+
+    mess.Message.match(
       async () => {
-        return await this.fatalError(new AnnotatedError('INVALID_HANDSHAKE', `Received a second "hello" message, even though handshake is completed`))
+        return await this.fatalError(new mess.AnnotatedError('INVALID_HANDSHAKE', `Received a second "hello" message, even though handshake is completed`))
       },
       this.onMessageGetPeers.bind(this),
       this.onMessagePeers.bind(this),
@@ -115,26 +114,26 @@ export class Peer {
       this.onMessageObject.bind(this), 
     )(msg)
   }
-  async onMessageHello(msg: HelloMessageType) {
+  async onMessageHello(msg: mess.HelloMessageType) {
     if (!semver.satisfies(msg.version, `^${VERSION}`)) {
-      return await this.fatalError(new AnnotatedError('INVALID_FORMAT', `You sent an incorrect version (${msg.version}), which is not compatible with this node's version ${VERSION}.`))
+      return await this.fatalError(new mess.AnnotatedError('INVALID_FORMAT', `You sent an incorrect version (${msg.version}), which is not compatible with this node's version ${VERSION}.`))
     }
     this.info(`Handshake completed. Remote peer running ${msg.agent} at protocol version ${msg.version}`)
     this.handshakeCompleted = true
   }
-  async onMessagePeers(msg: PeersMessageType) {
+  async onMessagePeers(msg: mess.PeersMessageType) {
     for (const peer of msg.peers) {
-      this.info(`Remote party reports knowledge of peer ${peer}`)
-
+      //this.info(`Remote party reports knowledge of peer ${peer}`)
       peerManager.peerDiscovered(peer)
     }
   }
-  async onMessageGetPeers(msg: GetPeersMessageType) {
+
+  async onMessageGetPeers(msg: mess.GetPeersMessageType) {
     this.info(`Remote party is requesting peers. Sharing.`)
     await this.sendPeers()
   }
 
-  async onMessageGetObject(msg: GetObjectMessageType) {
+  async onMessageGetObject(msg: mess.GetObjectMessageType) {
     this.info(`Remote party is requesting object with ID ${msg.objectid}.`)
     if(objectManager.knownObjects.has(msg.objectid)){
       this.info(`I have object with ID ${msg.objectid}. Sharing`)
@@ -145,19 +144,19 @@ export class Peer {
     }
   }
 
-  async onMessageObject(msg: ObjectMessageType) {
+  async onMessageObject(msg: mess.ObjectMessageType) {
     this.info(`Remote party is sending object: ${msg.object}`)
     let objectid: String = objectManager.getObjectID(Object(msg.object)) //TODO: fix this typing 
     if(!objectManager.knownObjects.has(objectid)){
       this.info(`I didn't have object with ID : ${objectid}. Saving object and gossiping to my peers`)
-      objectManager.objectDiscovered(Object(msg.object), objectid); //TODO: fix this typing 
+      objectManager.objectDiscovered(msg.object, objectid); //TODO: fix this typing 
     }
     else{ 
       this.info(`I already had object with ID : ${objectid}. Ignored`)
     }
   }
 
-  async onMessageIHaveObject(msg: IHaveObjectMessageType) {
+  async onMessageIHaveObject(msg: mess.IHaveObjectMessageType) {
     this.info(`Remote party is reporting knowledge of an object with ID ${msg.objectid}`)
     if(!objectManager.knownObjects.has(msg.objectid)){ 
       this.info(`I dont have object with ID ${msg.objectid}. Requesting from remote party`)
@@ -167,7 +166,7 @@ export class Peer {
       this.info(`I already have object with ID ${msg.objectid}`)
     }
   }
-  async onMessageError(msg: ErrorMessageType) {
+  async onMessageError(msg: mess.ErrorMessageType) {
     this.warn(`Peer reported error: ${msg.name}`)
   }
   log(level: string, message: string) {

@@ -1,6 +1,6 @@
 import { KeyObject } from 'crypto'
 import { Literal, Record, String, Array, Union, Static, Void, Unknown,} from 'runtypes'
-import { IApplicationObject, } from "./application_objects/object"
+import { ApplicationObject} from "./application_objects/object"
 
 
 export const HelloMessage = Record({
@@ -35,7 +35,6 @@ export type IHaveObjectMessageType = Static<typeof IHaveObjectMessage>
 
 export const ObjectMessage = Record({
   type: Literal('object'),
-  object: Unknown //TODO: this definetely should not be unknown 
 })
 
 export type ObjectMessageType = Static<typeof ObjectMessage>

@@ -5,10 +5,13 @@ import { canonicalize } from 'json-canonicalize'
 import { peerManager } from './peermanager'
 import { Peer } from './peer'
 import { MessageSocket } from './network'
+import { transactionManager } from './transactionmanager'
+import { ApplicationObject, ApplicationObjectType } from './application_objects/object'
+import * as mess from './message'
 
 
-class ObjectManager {
-  knownObjects: Map<String, object> = new Map()
+class ApplicationObjectManager {
+  knownObjects: Map<String, ApplicationObjectType> = new Map()
 
   async load() {
     try {
@@ -25,7 +28,7 @@ class ObjectManager {
     await db.put('objects', [...this.knownObjects])
   }
   
-  getObjectID(object: object){ 
+  getObjectID(object: ApplicationObjectType){ 
     const object_canon: string = canonicalize(object)
     logger.info(`Attempting to hash hashed from ${object_canon}`)
     var blake2 = require('blake2');
@@ -35,16 +38,11 @@ class ObjectManager {
     logger.info(`Attempting to hash hashed to ${objectid}`)
     return objectid; 
   }
-  objectDiscovered(object: Object, objectid: String) {
 
-    if(1/*object is a transaction*/){
-
-        this.knownObjects.set(objectid, object); 
-        this.store() 
-
-        this.gossipObject(object, objectid); 
-    }
-
+   objectDiscovered(object: ApplicationObjectType, objectid: String) {
+    this.knownObjects.set(objectid, object); 
+    this.store() 
+    this.gossipObject(object, objectid);
     }
 
   gossipObject(object: Object, objectid: String ){ 
@@ -59,6 +57,6 @@ class ObjectManager {
           logger.warn(`Failed to gossip to peer ${peerAddr}: ${e.message}`)
         }
     }
+  }
 }
-}
-export const objectManager = new ObjectManager()
+export const objectManager = new ApplicationObjectManager()

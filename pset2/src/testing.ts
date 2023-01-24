@@ -16,13 +16,10 @@ function test_ihaveobject_msg (client_soc: net.Socket) {
         let message: String = canonicalize({"agent":"Malibu (pset1)","type":"hello","version":"0.9.0"}); 
         client_soc.write((`${message}\n`));
 
-        let message1: String = canonicalize({
-            "type": "ihaveobject",
-            "objectid": "36496e13e8ad98f75321264b0a7980bfe25d4f1226ad1f8da1d8cdb82d8119ec"
-          }); 
+        let message1: string = canonicalize({"type": "ihaveobject", "objectid": "36496e13e8ad98f75321264b0a7980bfe25d4f1226ad1f8da1d8cdb82d8119ec"}); 
         client_soc.write((`${message1}\n`));
         
-        let message2: String = canonicalize({
+        let message2: string = canonicalize({
             "type": "object",
             "object": {
               "type": "block",
@@ -88,9 +85,9 @@ function test_shrek2 (obj: Object) {
     logger.info(`Attempting to hash hashed to ${objectid}`)
 }
 
-test_getobject (client_soc); 
+//test_getobject (client_soc); 
 
-//test_ihaveobject_msg (client_soc); 
+test_ihaveobject_msg (client_soc); 
 /*test_shrek2({
     "type": "block",
     "txids": [

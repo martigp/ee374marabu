@@ -1,21 +1,15 @@
-import { z } from "zod";
+import { Record, String, Static, Number} from 'runtypes'
 
-export interface IOutpoint {
-    txid : string;
-    index: Number;
-}
+export const Outpoint = Record({
+    txid: String, 
+    index : Number
+})
 
-const ZOutpoint = z.object({
-    txid: z.string(),
-    index: z.number(),
-});
+export type OutpointType = Static<typeof Outpoint>
 
-export interface IInput {
-    outpoint : IOutpoint;
-    sig : string;
-}
+export const Input = Record({
+    outpoint: Outpoint, 
+    sig : String
+})
 
-export const zInput = z.object({
-    outpoint : ZOutpoint,
-    sig : z.string(),
-});
+export type InputType = Static<typeof Input>
