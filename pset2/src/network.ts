@@ -15,6 +15,8 @@ export class Network {
     await peerManager.load()
     await objectManager.load()
 
+    // Create server and when listening, and for each new connection send a
+    // hello and getpeers message.
     const server = net.createServer((socket) => {
       logger.info(`New connection from peer ${socket.remoteAddress}`)
       const peer = new Peer(new MessageSocket(socket, `${socket.remoteAddress}:${socket.remotePort}`))
@@ -25,6 +27,7 @@ export class Network {
     logger.info(`Listening for connections on port ${bindPort} and IP ${bindIP}`)
     server.listen(bindPort, bindIP)
 
+    // Being a client to every single of the known peers as well
     for (const peerAddr of peerManager.knownPeers) {
       logger.info(`Attempting connection to known peer ${peerAddr}`)
       try {

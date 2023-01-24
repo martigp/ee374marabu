@@ -5,6 +5,7 @@ import * as mess from './message'
 import { peerManager } from './peermanager'
 import { canonicalize } from 'json-canonicalize'
 import { objectManager } from './objectmanager'
+import { ApplicationObject } from './application_objects/object'
 
 const VERSION = '0.9.0'
 const NAME = 'Malibu (pset1)'
@@ -153,7 +154,7 @@ export class Peer {
     let objectid: String = objectManager.getObjectID(msg.object)
     if(!objectManager.knownObjects.has(objectid)){
       this.info(`I didn't have object with ID : ${objectid}. Saving object and gossiping to my peers`)
-      objectManager.objectDiscovered(msg.object, objectid); //TODO: fix this typing 
+      objectManager.objectDiscovered(msg.object, objectid);
     }
     else{ 
       this.info(`I already had object with ID : ${objectid}. Ignored`)

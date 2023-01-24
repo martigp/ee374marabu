@@ -1,8 +1,6 @@
 import { Input } from './input';
 import { Output } from './output';
 import { Literal, Record, String, Array, Union, Static, Null, Unknown, Number, Optional} from 'runtypes'
-import { optional } from 'zod';
-
 
 export const TxObject = Record({
     type: Literal('transaction'), 

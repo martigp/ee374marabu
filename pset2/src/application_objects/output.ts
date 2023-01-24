@@ -1,7 +1,7 @@
-import { Record, String, Static, Number} from 'runtypes'
+import { Union, Record, String, Static, Number, Null} from 'runtypes'
 
 export const Output = Record({
-    pubkey: String, 
+    pubkey: String,
     value : Number
 })
 
