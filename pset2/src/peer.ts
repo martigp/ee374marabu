@@ -202,9 +202,7 @@ export class Peer {
 
   verify_sig(sig : string, noSigTx : any, pubkey: string) : Promise<boolean> {
     let char_array : string[] = canonicalize(noSigTx).split("");
-    logger.debug(`Verifying sig, message char array ${char_array}`)
     var hex_message = Uint8Array.from(char_array.map(x => x.charCodeAt(0)))
-    logger.debug(`Verifying sig,hex_message ${hex_message}`)
     return ed.verify(sig, hex_message, pubkey)
   }
 

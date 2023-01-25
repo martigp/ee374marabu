@@ -12,6 +12,9 @@ const client_soc = new net.Socket();
 function test_ihaveobject_msg (client_soc: net.Socket) {
     console.log(`Connecting....`);
     client_soc.connect(SERVER_PORT, SERVER_HOST, async () => {
+        client_soc.on('data', (data) => {
+          console.log(data);
+        });
         console.log(`Connected to server ${SERVER_HOST}:${SERVER_PORT}`);
         let message: String = canonicalize({"agent":"Malibu (pset1)","type":"hello","version":"0.9.0"}); 
         client_soc.write((`${message}\n`));
@@ -114,7 +117,10 @@ function test_transactions(client_soc: net.Socket){
         client_soc.write((`${message2}\n`));
 
 
-});
+  });
+  client_soc.on('data', (data) => {
+    console.log(`Server sent: ${data}`);
+  });
 }
 
 test_transactions(client_soc);

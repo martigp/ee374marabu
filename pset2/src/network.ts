@@ -27,7 +27,7 @@ export class Network {
         logger.debug(`Gossip event received with msg ${canonicalize(gossipMsg)}`);
         for(const gossipPeer of this.peers) {
           logger.info(`Attempting to gossip to peer: ${gossipPeer.socket.peerAddr}`)
-          gossipPeer.socket.sendMessage(gossipMsg);
+          gossipPeer.sendMessage(gossipMsg);
         }
       });
     })
@@ -46,7 +46,7 @@ export class Network {
           logger.debug(`List of peers sending to:\n${this.peers}`);
           for(const gossipPeer of this.peers) {
             logger.info(`Attempting to gossip to peer: ${gossipPeer.socket.peerAddr}`)
-            gossipPeer.socket.sendMessage(canonicalize(gossipMsg));
+            gossipPeer.sendMessage(gossipMsg);
           }
         });
       }
