@@ -155,7 +155,7 @@ export class Peer {
 
   async onMessageIHaveObject(msg: mess.IHaveObjectMessageType) {
     this.info(`Remote party is reporting knowledge of an object with ID ${msg.objectid}`);
-    if (obj.checkValidObjectId(msg.objectid)) {
+    if (!obj.checkValidObjectId(msg.objectid)) {
       return await this.fatalError(new mess.AnnotatedError('INVALID_FORMAT', `Invalid objectid ${msg.objectid}`));
     }
     if(!objectManager.knownObjects.has(msg.objectid)){ 
