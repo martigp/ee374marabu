@@ -209,6 +209,11 @@ export class Peer {
 
   async onTxObject(object : obj.TxObjectType, objectid : String) {
 
+    if(!obj.validTxFormat(object)) {
+      return await this.sendError(new mess.AnnotatedError('INVALID_FORMAT',
+                          `Transcation Object had invalid format`));
+    }
+
     // Get Tx with nullified pubkeys for signature validation
     const noSigTx = object
     for (const input of noSigTx.inputs) {
@@ -224,9 +229,7 @@ export class Peer {
     let inputNo = 0;
     logger.debug(`The inputs ${canonicalize(object.inputs)}`)
     for(const input of object.inputs) {
-      if (!obj.checkValidObjectId(input.outpoint.txid)) {
-        return await this.fatalError(new mess.AnnotatedError('INVALID_FORMAT', `Invalid blake2 hash for objectid`));
-      }
+
       let res = objectManager.getObject(input.outpoint.txid)
       if(!res.success) {
         return await this.sendError(new mess.AnnotatedError('UNKNOWN_OBJECT',
@@ -239,26 +242,20 @@ export class Peer {
         if (storedInput.outputs.length <= ind)
           return await this.sendError(new mess.AnnotatedError('INVALID_TX_OUTPOINT',
                                           `Index ${input.outpoint.index} too large`));
-        else if ( ind < 0 )
-          return await this.fatalError(new mess.AnnotatedError('INVALID_FORMAT',
-                                `Index ${input.outpoint.index} less than zero`));
 
         // Shows error here but isn't an issue because we verify above that 
         // all signatures are non null.
-        let valid_sig : boolean = await this.verify_sig(input.sig, noSigTx,
-                    storedInput.outputs[input.outpoint.index].pubkey);
-
+        let valid_sig : boolean = false;
+        if (input.sig) {
+          valid_sig = await this.verify_sig(input.sig, noSigTx,
+            storedInput.outputs[input.outpoint.index].pubkey);
+        }
         if(!valid_sig) {
           return await this.sendError(new mess.AnnotatedError('INVALID_TX_SIGNATURE',
                                           `Bad sig on ${noSigTx}`));
         }
 
         let val = storedInput.outputs[input.outpoint.index].value;
-        
-        if (val < 0) {
-          return await this.fatalError(new mess.AnnotatedError('INVALID_FORMAT',
-                                          `${val} less than zero on input ${inputNo}`));
-        }
       
         sumInputs += storedInput.outputs[input.outpoint.index].value;
         logger.debug(`Input with value ${storedInput.outputs[input.outpoint.index].value} verified`)
