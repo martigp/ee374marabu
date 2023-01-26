@@ -12,7 +12,6 @@ const SERVER_HOST = '0.0.0.0'
 // const SERVER_HOST = '45.77.189.40'
 
 const GRADER: string = process.argv[2]
-// const SERVER_HOST = '45.77.189.40'
 
 const client_soc = new net.Socket();
 
@@ -116,6 +115,8 @@ function test_transactions(client_soc: net.Socket) {
     client_soc.write((`${message}\n`));
     // let get_peers : String = canonicalize({"type":"getpeerz"});
     //client_soc.write((`${get_peers}\n`));
+
+    client_soc.write((`${message}\n`));
     let getbojectmsg: String = canonicalize({
       "type": "getobject",
       "objectid": "36496e13e8ad98f75321264b0a7980bfe25d4f1226ad1f8da1d8cdb82d8119ec"
@@ -214,8 +215,7 @@ function test_invalid_transaction(client_soc: net.Socket) {
                 "index": 0,
                 "txid": "b303d841891f91af118a319f99f5984def51091166ac73c062c98f86ea7371ee"
               },
-              // Changed final digit from 5 to 6
-              "sig": "060bf7cbe141fecfebf6dafbd6ebbcff25f82e729a7770f4f3b1f81a7ec8a0ce4b287597e609b822111bbe1a83d682ef14f018f8a9143cef25ecc9a8b0c1c406"
+              "sig": "060bf7c6ebbcff25f82e729a7770f4f3b1f81a7ec8a0ce4b287597e609b822111bbe1a83d682ef14f018f8a9143cef25ecc9a8b0c1c405"
             }],
             "outputs": [{
               "pubkey": "958f8add086cc348e229a3b6590c71b7d7754e42134a127a50648bf07969d9a0",
@@ -450,7 +450,6 @@ function test_coinbase_gossip_1(client_soc: net.Socket) {
 }
 
 const TEST_CASE: String = process.argv[3]
-console.log(TEST_CASE);
 
 switch (TEST_CASE) {
   case "transactions": {

@@ -149,7 +149,7 @@ export class Peer {
       await this.sendObject(msg.objectid)
     }
     else{ 
-      this.info(`I don't have object with ID ${msg.objectid}`)
+      this.info(`I don't have object gitwith ID ${msg.objectid}`)
     }
   }
 
