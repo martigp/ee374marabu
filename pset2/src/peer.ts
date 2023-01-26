@@ -38,7 +38,7 @@ export class Peer {
 
   async sendGetObject(objectid: String) {
     this.sendMessage({
-      type: 'getobject',
+      type: 'getobject', 
       objectid: objectid
     })
   }
@@ -51,7 +51,7 @@ export class Peer {
   async sendIHaveObject(objectid: String) {
     this.sendMessage({
       type: 'ihaveobject',
-      objectid: objectid
+      objectid: objectid 
     })
   }
 
@@ -114,8 +114,8 @@ export class Peer {
       this.onMessagePeers.bind(this),
       this.onMessageError.bind(this),
       this.onMessageIHaveObject.bind(this),
-      this.onMessageGetObject.bind(this),
-      this.onMessageObject.bind(this),
+      this.onMessageGetObject.bind(this), 
+      this.onMessageObject.bind(this), 
     )(msg)
   }
 
@@ -144,11 +144,11 @@ export class Peer {
     if (!obj.checkValidObjectId(msg.objectid)) {
       return await this.fatalError(new mess.AnnotatedError('INVALID_FORMAT', `Invalid blake2 hash for objectid`));
     }
-    if (objectManager.knownObjects.has(msg.objectid)) {
+    if(objectManager.knownObjects.has(msg.objectid)){
       this.info(`I have object with ID ${msg.objectid}. Sharing`)
       await this.sendObject(msg.objectid)
     }
-    else {
+    else{ 
       this.info(`I don't have object with ID ${msg.objectid}`)
     }
   }
@@ -158,11 +158,11 @@ export class Peer {
     if (obj.checkValidObjectId(msg.objectid)) {
       return await this.fatalError(new mess.AnnotatedError('INVALID_FORMAT', `Invalid objectid ${msg.objectid}`));
     }
-    if (!objectManager.knownObjects.has(msg.objectid)) {
+    if(!objectManager.knownObjects.has(msg.objectid)){ 
       this.info(`I dont have object with ID ${msg.objectid}. Requesting from remote party`)
       await this.sendGetObject(msg.objectid)
     }
-    else {
+    else{ 
       this.info(`I already have object with ID ${msg.objectid}`)
     }
   }
@@ -170,44 +170,49 @@ export class Peer {
   async onMessageObject(msg: mess.ObjectMessageType) {
     this.info(`Remote party is sending object: ${msg.object}`)
     let objectid: String = objectManager.getObjectID(msg.object)
-    if (!objectManager.knownObjects.has(objectid)) {
+    if(!objectManager.knownObjects.has(objectid)){
       this.info(`I didn't have object with ID : ${objectid}. Saving object and gossiping to my peers`)
       obj.ApplicationObject.match(
-        (block: obj.BlockObjectType) => this.onBlockObject(block, objectid),
-        (tx: obj.TxObjectType) => this.onTxObject(tx, objectid),
-        (coinbase: obj.CoinbaseObjectType) => this.onCoinbaseObject(coinbase, objectid),
+        (block : obj.BlockObjectType) => this.onBlockObject(block, objectid), 
+        (tx : obj.TxObjectType) => this.onTxObject(tx, objectid),
+        (coinbase : obj.CoinbaseObjectType) => this.onCoinbaseObject(coinbase, objectid),
       )(msg.object);
     }
-    else {
+    else{ 
       this.info(`I already had object with ID : ${objectid}. Ignored`)
     }
   }
 
-  onBlockObject(object: obj.BlockObjectType, objectid: String) {
+  onBlockObject(object : obj.BlockObjectType, objectid : String) {
     logger.debug(`Received Block object: ${canonicalize(object)}`);
     objectManager.objectDiscovered(object, objectid);
     this.socket.emit('gossip', {
       type: 'ihaveobject',
-      objectid: objectid
+      objectid: objectid 
     });
   }
 
-  onCoinbaseObject(object: obj.CoinbaseObjectType, objectid: String) {
+  onCoinbaseObject(object : obj.CoinbaseObjectType, objectid : String) {
     logger.debug(`Received Coinbase object:  ${canonicalize(object)}`);
     objectManager.objectDiscovered(object, objectid);
     this.socket.emit('gossip', {
       type: 'ihaveobject',
-      objectid: objectid
+      objectid: objectid 
     });
   }
 
-  verify_sig(sig: string, noSigTx: any, pubkey: string): Promise<boolean> {
-    let char_array: string[] = canonicalize(noSigTx).split("");
+  verify_sig(sig : string, noSigTx : any, pubkey: string) : Promise<boolean> {
+    let char_array : string[] = canonicalize(noSigTx).split("");
     var hex_message = Uint8Array.from(char_array.map(x => x.charCodeAt(0)))
     return ed.verify(sig, hex_message, pubkey)
   }
 
-  async onTxObject(object: obj.TxObjectType, objectid: String) {
+  async onTxObject(object : obj.TxObjectType, objectid : String) {
+
+    if(!obj.validTxFormat(object)) {
+      return await this.sendError(new mess.AnnotatedError('INVALID_FORMAT',
+                          `Transcation Object had invalid format`));
+    }
 
     // Get Tx with nullified pubkeys for signature validation
     const noSigTx = object
@@ -215,7 +220,7 @@ export class Peer {
       // Check for null signatures
       if (input.sig === null) {
         return await this.sendError(new mess.AnnotatedError('INVALID_TX_SIGNATURE',
-          `Signature null on an input`));
+                                          `Signature null on an input`));
       }
       input.sig = null;
     }
@@ -223,74 +228,61 @@ export class Peer {
     let sumInputs = 0;
     let inputNo = 0;
     logger.debug(`The inputs ${canonicalize(object.inputs)}`)
-    for (const input of object.inputs) {
-      if (!obj.checkValidObjectId(input.outpoint.txid)) {
-        return await this.fatalError(new mess.AnnotatedError('INVALID_FORMAT', `Invalid blake2 hash for objectid`));
-      }
+    for(const input of object.inputs) {
+
       let res = objectManager.getObject(input.outpoint.txid)
-      if (!res.success) {
+      if(!res.success) {
         return await this.sendError(new mess.AnnotatedError('UNKNOWN_OBJECT',
-          `Input Objectid ${input.outpoint.txid} not found locally`));
+        `Input Objectid ${input.outpoint.txid} not found locally`));
       }
       let storedInput = res.object;
       logger.debug(`Stored boject ${canonicalize(storedInput)}`)
-      if (Union(obj.TxObject, obj.CoinbaseObject).guard(storedInput)) {
+      if(Union(obj.TxObject, obj.CoinbaseObject).guard(storedInput)) {
         let ind = input.outpoint.index;
         if (storedInput.outputs.length <= ind)
           return await this.sendError(new mess.AnnotatedError('INVALID_TX_OUTPOINT',
-            `Index ${input.outpoint.index} too large`));
-        else if (ind < 0)
-          return await this.fatalError(new mess.AnnotatedError('INVALID_FORMAT',
-            `Index ${input.outpoint.index} less than zero`));
+                                          `Index ${input.outpoint.index} too large`));
 
         // Shows error here but isn't an issue because we verify above that 
         // all signatures are non null.
-        // let valid_sig: boolean = false
-        // if (input.sig) {
-        // valid_sig = await this.verify_sig(input.sig, noSigTx,
-        // storedInput.outputs[input.outpoint.index].pubkey);
-        // }
-        let valid_sig: boolean = await this.verify_sig(input.sig, noSigTx,
-          storedInput.outputs[input.outpoint.index].pubkey);
-
-        if (!valid_sig) {
+        let valid_sig : boolean = false;
+        if (input.sig) {
+          valid_sig = await this.verify_sig(input.sig, noSigTx,
+            storedInput.outputs[input.outpoint.index].pubkey);
+        }
+        if(!valid_sig) {
           return await this.sendError(new mess.AnnotatedError('INVALID_TX_SIGNATURE',
-            `Bad sig on ${noSigTx}`));
+                                          `Bad sig on ${noSigTx}`));
         }
 
         let val = storedInput.outputs[input.outpoint.index].value;
-
-        if (val < 0) {
-          return await this.fatalError(new mess.AnnotatedError('INVALID_FORMAT',
-            `${val} less than zero on input ${inputNo}`));
-        }
-
+      
         sumInputs += storedInput.outputs[input.outpoint.index].value;
         logger.debug(`Input with value ${storedInput.outputs[input.outpoint.index].value} verified`)
       }
       inputNo += 1;
     }
-
+    
     logger.debug(`Valid inputs`);
 
     let sumOutputs = 0;
     let outputNo = 0;
-    for (const output of object.outputs) {
+    for(const output of object.outputs) {
       if (output.value < 0) {
         return await this.fatalError(new mess.AnnotatedError('INVALID_FORMAT',
-          `${output.value} less than zero on output ${outputNo}`));
+                                          `${output.value} less than zero on output ${outputNo}`));
       }
       sumOutputs += output.value;
       outputNo += 1;
     }
 
     if (sumInputs < sumOutputs)
-      return await this.sendError(new mess.AnnotatedError('INVALID_TX_CONSERVATION', `, Inputs: ${sumInputs}, Outputs: ${sumOutputs}`));
-
+      return await this.sendError(new mess.AnnotatedError('INVALID_TX_CONSERVATION',`, Inputs: ${sumInputs}, Outputs: ${sumOutputs}`));
+    
     objectManager.objectDiscovered(object, objectid);
     this.socket.emit('gossip', {
       type: 'ihaveobject',
-      objectid: objectid
+      objectid: objectid 
     });
   }
 
