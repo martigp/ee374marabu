@@ -220,14 +220,14 @@ export class Peer {
     for(const input of object.inputs) {
       let res = objectManager.getObject(input.outpoint.txid)
       if(!res.success) {
-        return await this.fatalError(new mess.AnnotatedError('UNKNOWN_OBJECT',
+        return await this.sendError(new mess.AnnotatedError('UNKNOWN_OBJECT',
         `Input Objectid ${input.outpoint.txid} not found locally`));
       }
       let storedInput = res.object;
       logger.debug(`Stored boject ${canonicalize(storedInput)}`)
       if(Union(obj.TxObject, obj.CoinbaseObject).guard(storedInput)) {
         if (storedInput.outputs.length <= input.outpoint.index) {
-          return await this.fatalError(new mess.AnnotatedError('INVALID_TX_OUTPOINT',
+          return await this.sendError(new mess.AnnotatedError('INVALID_TX_OUTPOINT',
                                           `Index ${input.outpoint.index} too large`));
         }
 
@@ -235,7 +235,7 @@ export class Peer {
                     storedInput.outputs[input.outpoint.index].pubkey);
 
         if(!valid_sig) {
-          return await this.fatalError(new mess.AnnotatedError('INVALID_TX_SIGNATURE',
+          return await this.sendError(new mess.AnnotatedError('INVALID_TX_SIGNATURE',
                                           `Bad sig on ${noSigTx}`));
         }
 
