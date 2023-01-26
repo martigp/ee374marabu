@@ -34,3 +34,7 @@ export const ApplicationObject = Union(BlockObject, TxObject, CoinbaseObject);
 export type ApplicationObjectType = Static<typeof ApplicationObject>
 
 export const ApplicationObjects = [BlockObject, TxObject, CoinbaseObject]
+
+export function checkValidObjectId( objectid : string ) : boolean {
+    return /[0-9a-f]{64}/.test(objectid);
+}

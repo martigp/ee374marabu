@@ -84,6 +84,7 @@ export class Peer {
     return await this.fatalError(new mess.AnnotatedError('INVALID_FORMAT', 'Timed out before message was complete'))
   }
   async onMessage(message: string) {
+
     this.debug(`Message arrival: ${message}`)
 
     let msg: object
@@ -140,7 +141,7 @@ export class Peer {
 
   async onMessageGetObject(msg: mess.GetObjectMessageType) {
     this.info(`Remote party is requesting object with ID ${msg.objectid}.`)
-    if (!/[0-9a-f]{64}/.test(msg.objectid)) {
+    if (!obj.checkValidObjectId(msg.objectid)) {
       return await this.fatalError(new mess.AnnotatedError('INVALID_FORMAT', `Invalid blake2 hash for objectid`));
     }
     if(objectManager.knownObjects.has(msg.objectid)){
@@ -148,7 +149,21 @@ export class Peer {
       await this.sendObject(msg.objectid)
     }
     else{ 
-      this.info(`I don't have object with ID ${msg.objectid}. Ignoring`)
+      this.info(`I don't have object with ID ${msg.objectid}`)
+    }
+  }
+
+  async onMessageIHaveObject(msg: mess.IHaveObjectMessageType) {
+    this.info(`Remote party is reporting knowledge of an object with ID ${msg.objectid}`);
+    if (obj.checkValidObjectId(msg.objectid)) {
+      return await this.fatalError(new mess.AnnotatedError('INVALID_FORMAT', `Invalid objectid ${msg.objectid}`));
+    }
+    if(!objectManager.knownObjects.has(msg.objectid)){ 
+      this.info(`I dont have object with ID ${msg.objectid}. Requesting from remote party`)
+      await this.sendGetObject(msg.objectid)
+    }
+    else{ 
+      this.info(`I already have object with ID ${msg.objectid}`)
     }
   }
 
@@ -165,20 +180,6 @@ export class Peer {
     }
     else{ 
       this.info(`I already had object with ID : ${objectid}. Ignored`)
-    }
-  }
-
-  async onMessageIHaveObject(msg: mess.IHaveObjectMessageType) {
-    this.info(`Remote party is reporting knowledge of an object with ID ${msg.objectid}`);
-    if (!/[0-9a-f]{64}/.test(msg.objectid)) {
-      return await this.fatalError(new mess.AnnotatedError('INVALID_FORMAT', `Invalid blake2 hash for objectid`));
-    }
-    if(!objectManager.knownObjects.has(msg.objectid)){ 
-      this.info(`I dont have object with ID ${msg.objectid}. Requesting from remote party`)
-      await this.sendGetObject(msg.objectid)
-    }
-    else{ 
-      this.info(`I already have object with ID ${msg.objectid}`)
     }
   }
 
@@ -208,9 +209,14 @@ export class Peer {
 
   async onTxObject(object : obj.TxObjectType, objectid : String) {
 
-    // Get signed message but nullify the pubkey
-    const noSigTx = JSON.parse(JSON.stringify(object));
+    // Get Tx with nullified pubkeys for signature validation
+    const noSigTx = object
     for (const input of noSigTx.inputs) {
+      // Check for null signatures
+      if (input.sig === null) {
+        return await this.sendError(new mess.AnnotatedError('INVALID_TX_SIGNATURE',
+                                          `Signature null on an input`));
+      }
       input.sig = null;
     }
 
@@ -218,6 +224,9 @@ export class Peer {
     let inputNo = 0;
     logger.debug(`The inputs ${canonicalize(object.inputs)}`)
     for(const input of object.inputs) {
+      if (!obj.checkValidObjectId(input.outpoint.txid)) {
+        return await this.fatalError(new mess.AnnotatedError('INVALID_FORMAT', `Invalid blake2 hash for objectid`));
+      }
       let res = objectManager.getObject(input.outpoint.txid)
       if(!res.success) {
         return await this.sendError(new mess.AnnotatedError('UNKNOWN_OBJECT',
@@ -226,11 +235,16 @@ export class Peer {
       let storedInput = res.object;
       logger.debug(`Stored boject ${canonicalize(storedInput)}`)
       if(Union(obj.TxObject, obj.CoinbaseObject).guard(storedInput)) {
-        if (storedInput.outputs.length <= input.outpoint.index) {
+        let ind = input.outpoint.index;
+        if (storedInput.outputs.length <= ind)
           return await this.sendError(new mess.AnnotatedError('INVALID_TX_OUTPOINT',
                                           `Index ${input.outpoint.index} too large`));
-        }
+        else if ( ind < 0 )
+          return await this.fatalError(new mess.AnnotatedError('INVALID_FORMAT',
+                                `Index ${input.outpoint.index} less than zero`));
 
+        // Shows error here but isn't an issue because we verify above that 
+        // all signatures are non null.
         let valid_sig : boolean = await this.verify_sig(input.sig, noSigTx,
                     storedInput.outputs[input.outpoint.index].pubkey);
 
@@ -266,7 +280,7 @@ export class Peer {
     }
 
     if (sumInputs < sumOutputs)
-      return await this.fatalError(new mess.AnnotatedError('INVALID_TX_CONSERVATION',`, Inputs: ${sumInputs}, Outputs: ${sumOutputs}`));
+      return await this.sendError(new mess.AnnotatedError('INVALID_TX_CONSERVATION',`, Inputs: ${sumInputs}, Outputs: ${sumOutputs}`));
     
     objectManager.objectDiscovered(object, objectid);
     this.socket.emit('gossip', {

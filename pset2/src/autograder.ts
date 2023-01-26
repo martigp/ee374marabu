@@ -172,18 +172,107 @@ function test_case2() {
 
 }
 
-function test_case3() {
-    // Errors
-    //Values don't add up
-    // Unknown Object
-    // 
+// Sent getobject in resopnse to ihaveobject that SERVER doesn't have
+function test_case22() {
+    const Grader1 = new net.Socket();
+    const Grader2 = new net.Socket();
+
+    Grader2.connect(SERVER_PORT, SERVER_HOST, async () => {
+
+        console.log(`Grader2 successfully connected to IP address 
+                    ${Grader2.remoteAddress} on port ${Grader2.remotePort}`);
+        let hello2: String = canonicalize({"agent":"Grader2","type":"hello","version":"0.9.0"});
+        console.log(`Sending message: ${hello2}`);
+        Grader2.write((`${hello2}\n`));
+    });
+
+    Grader1.connect(SERVER_PORT, SERVER_HOST, async () => {
+
+        console.log(`Grader1 successfully connected to IP address 
+                    ${Grader1.remoteAddress} on port ${Grader1.remotePort}`);
+        let hello1: String = canonicalize({"agent":"Grader1","type":"hello","version":"0.9.0"});
+        console.log(`Sending message: ${hello1}`);
+        Grader1.write((`${hello1}\n`));
+        let ihaveobject: String = canonicalize(
+            { "objectid": "54d2d5264208f6541361f970c3f51a6b2c42745cf7110a5c7b771a6ad80e638c",
+              "type":"ihaveobject"
+            }
+        );
+        console.log(`Grader1 sending ${ihaveobject}`);
+        Grader1.write(`${ihaveobject}\n`);
+    });
+
+    let grader1Should : string[] = ["Hello", "GETPEERS", "GETOBJECT"]
+    // Hello messages
+    let i = 0;
+    Grader1.on('data', (data : string) => {
+        let buffer : string = "";
+        buffer += data;
+        const messages = buffer.split('\n');
+        for(const message of messages.slice(0,messages.length - 1)) {
+            console.log(`Grader 1 should have received ${grader1Should[i]}`)
+            console.log(`Grader1 received message ${message}`);
+            i++;
+        }
+    });
+}
+
+// No crash when send an invalid getobject
+function test_case4() {
+    const Grader1 = new net.Socket();
+    const Grader2 = new net.Socket();
+
+    Grader2.connect(SERVER_PORT, SERVER_HOST, async () => {
+
+        console.log(`Grader2 successfully connected to IP address 
+                    ${Grader2.remoteAddress} on port ${Grader2.remotePort}`);
+        let hello2: String = canonicalize({"agent":"Grader2","type":"hello","version":"0.9.0"});
+        console.log(`Sending message: ${hello2}`);
+        Grader2.write((`${hello2}\n`));
+    });
+
+    Grader1.connect(SERVER_PORT, SERVER_HOST, async () => {
+
+        console.log(`Grader1 successfully connected to IP address 
+                    ${Grader1.remoteAddress} on port ${Grader1.remotePort}`);
+        let hello1: String = canonicalize({"agent":"Grader1","type":"hello","version":"0.9.0"});
+        console.log(`Sending message: ${hello1}`);
+        Grader1.write((`${hello1}\n`));
+        let getobject: String = canonicalize(
+            { "objectid": "54d2d5264208f6541361f970c3f51a6b2c42745cf7110a5c7b771a6ad80e638c",
+              "type":"getobject"
+            }
+        );
+        console.log(`Grader1 sending ${getobject}`);
+        Grader1.write(`${getobject}\n`);
+        let getpeers = canonicalize(
+            {type: "getpeers"}
+        );
+        console.log(`Grader1 sending ${getpeers}`);
+        Grader1.write(`${getpeers}\n`);
+    });
+
+    let grader1Should : string[] = ["Hello", "GETPEERS", "PEERS"]
+    // Hello messages
+    let i = 0;
+    Grader1.on('data', (data : string) => {
+        let buffer : string = "";
+        buffer += data;
+        const messages = buffer.split('\n');
+        for(const message of messages.slice(0,messages.length - 1)) {
+            console.log(`Grader 1 should have received ${grader1Should[i]}`)
+            console.log(`Grader1 received message ${message}`);
+            i++;
+        }
+    });
 }
 
 
 function emulate_autograder() { 
     //test_case1();
-    test_case2();
-    teset_case3();
+    //test_case2();
+    //test_case22();
+    test_case4();
 }
 
 emulate_autograder(); 

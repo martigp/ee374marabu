@@ -92,9 +92,15 @@ function test_transactions(client_soc: net.Socket){
     console.log(`Connecting....`);
     client_soc.connect(SERVER_PORT, SERVER_HOST, async () => {
         console.log(`Connected to server ${SERVER_HOST}:${SERVER_PORT}`);
-        let message: String = canonicalize({"agent":"Malibu (pset1)","type":"hello","version":"0.9.0"}); 
+        let message: String = canonicalize({"agent":"Malibu (pset1)","type":"hello","version":"0.9.0"});
+        // let get_peers : String = canonicalize({"type":"getpeerz"});
+        //client_soc.write((`${get_peers}\n`));
         client_soc.write((`${message}\n`));
-
+        let getbojectmsg: String = canonicalize({
+          "type": "getobject",
+          "objectid": "36496e13e8ad98f75321264b0a7980bfe25d4f1226ad1f8da1d8cdb82d8119ec"
+        });
+        client_soc.write((`${getbojectmsg}\n`));
         let message1: String = canonicalize({
             "type": "object",
             "object": {
@@ -123,9 +129,9 @@ function test_transactions(client_soc: net.Socket){
   });
 }
 
-test_transactions(client_soc);
+// test_transactions(client_soc);
 
-//test_getobject (client_soc); 
+test_getobject (client_soc); 
 
 //test_ihaveobject_msg (client_soc); 
 /*test_shrek2({

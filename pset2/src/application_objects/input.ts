@@ -1,4 +1,4 @@
-import { Record, String, Static, Number} from 'runtypes'
+import { Record, String, Static, Number, Null, Union} from 'runtypes'
 
 export const Outpoint = Record({
     txid: String, 
@@ -9,7 +9,7 @@ export type OutpointType = Static<typeof Outpoint>
 
 export const Input = Record({
     outpoint: Outpoint, 
-    sig : String
+    sig : Union(String,Null)
 })
 
 export type InputType = Static<typeof Input>
