@@ -1,4 +1,5 @@
 import { Record, String, Static, Number, Null, Union} from 'runtypes'
+import { logger } from '../logger'
 
 export const Outpoint = Record({
     txid: String, 
@@ -13,14 +14,21 @@ export const Input = Record({
 })
 
 export function validInputFormat(input: InputType) : boolean {
-    // Check Sig and TxId
-    // Check txid 
-    if( (!/[0-9a-f]{64}/.test(input.outpoint.txid)) || input.outpoint.index < 0) {
+
+    if( (!/[0-9a-f]{64}/.test(input.outpoint.txid))) {
+        logger.info(`Invalid txid ${input.outpoint.txid}`)
+        return false;
+    }
+    if (input.outpoint.index < 0) {
+        logger.info(`Index ${input.outpoint.index} less than 0`)
         return false;
     }
 
-    // Only checking formatting, null signature is not FORMAT ERROR
-    return input.sig === null ? true : /[0-9af]{128}/.test(input.sig)
+    if (input.sig !== null && !/[0-9a-f]{128}/.test(input.sig)) {
+        logger.info(`Index ${input.sig} not 128 hex chars`)
+        return false;
+    }
+    return true;
 }
 
 export type InputType = Static<typeof Input>

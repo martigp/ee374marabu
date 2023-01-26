@@ -1,4 +1,5 @@
 import { Union, Record, String, Static, Number, Null} from 'runtypes'
+import { logger } from '../logger';
 
 export const Output = Record({
     pubkey: String,
@@ -7,7 +8,15 @@ export const Output = Record({
 
 export function validOutputFormat(output: OutputType) : boolean {
     // Check Sig and TxId
-    return /[0-9af]{64}/.test(output.pubkey) && output.value >= 0;
+    if(!/[0-9a-f]{64}/.test(output.pubkey)) {
+        logger.info(`Output Pubkey ${output.pubkey} not 64 hex chars`)
+        return false;
+    }
+    if(output.value < 0) {
+        logger.info(`Output Value ${output.value} less than 0`)
+        return false;
+    }
+    return true;
 }
 
 export type OutputType = Static<typeof Output>

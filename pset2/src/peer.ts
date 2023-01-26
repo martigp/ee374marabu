@@ -168,10 +168,9 @@ export class Peer {
   }
 
   async onMessageObject(msg: mess.ObjectMessageType) {
-    this.info(`Remote party is sending object: ${msg.object}`)
+    this.info(`Remote party is sending object: ${canonicalize(msg.object)}`)
     let objectid: String = objectManager.getObjectID(msg.object)
     if(!objectManager.knownObjects.has(objectid)){
-      this.info(`I didn't have object with ID : ${objectid}. Saving object and gossiping to my peers`)
       obj.ApplicationObject.match(
         (block : obj.BlockObjectType) => this.onBlockObject(block, objectid), 
         (tx : obj.TxObjectType) => this.onTxObject(tx, objectid),
@@ -210,12 +209,12 @@ export class Peer {
   async onTxObject(object : obj.TxObjectType, objectid : String) {
 
     if(!obj.validTxFormat(object)) {
-      return await this.sendError(new mess.AnnotatedError('INVALID_FORMAT',
+      return await this.fatalError(new mess.AnnotatedError('INVALID_FORMAT',
                           `Transcation Object had invalid format`));
     }
 
     // Get Tx with nullified pubkeys for signature validation
-    const noSigTx = object
+    const noSigTx = JSON.parse(JSON.stringify(object))
     for (const input of noSigTx.inputs) {
       // Check for null signatures
       if (input.sig === null) {
@@ -235,11 +234,11 @@ export class Peer {
         return await this.sendError(new mess.AnnotatedError('UNKNOWN_OBJECT',
         `Input Objectid ${input.outpoint.txid} not found locally`));
       }
-      let storedInput = res.object;
-      logger.debug(`Stored boject ${canonicalize(storedInput)}`)
-      if(Union(obj.TxObject, obj.CoinbaseObject).guard(storedInput)) {
+      let prevTx = res.object;
+      logger.debug(`Stored boject ${canonicalize(prevTx)}`)
+      if(Union(obj.TxObject, obj.CoinbaseObject).guard(prevTx)) {
         let ind = input.outpoint.index;
-        if (storedInput.outputs.length <= ind)
+        if (prevTx.outputs.length <= ind)
           return await this.sendError(new mess.AnnotatedError('INVALID_TX_OUTPOINT',
                                           `Index ${input.outpoint.index} too large`));
 
@@ -248,17 +247,17 @@ export class Peer {
         let valid_sig : boolean = false;
         if (input.sig) {
           valid_sig = await this.verify_sig(input.sig, noSigTx,
-            storedInput.outputs[input.outpoint.index].pubkey);
+            prevTx.outputs[input.outpoint.index].pubkey);
         }
         if(!valid_sig) {
           return await this.sendError(new mess.AnnotatedError('INVALID_TX_SIGNATURE',
-                                          `Bad sig on ${noSigTx}`));
+                                          `Bad sig on ${canonicalize(noSigTx)}`));
         }
 
-        let val = storedInput.outputs[input.outpoint.index].value;
+        let val = prevTx.outputs[input.outpoint.index].value;
       
-        sumInputs += storedInput.outputs[input.outpoint.index].value;
-        logger.debug(`Input with value ${storedInput.outputs[input.outpoint.index].value} verified`)
+        sumInputs += val
+        logger.debug(`Input with value ${prevTx.outputs[input.outpoint.index].value} verified`)
       }
       inputNo += 1;
     }
