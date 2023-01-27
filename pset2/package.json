@@ -5,9 +5,10 @@
   "main": "index.js",
   "scripts": {
     "start": "ts-node src/index.ts",
-    "test": "ts-node src/testing.ts"
+    "test": "ts-node src/testing.ts",
+    "auto": "ts-node src/autograder.ts"
   },
-  "author": "Dionysis Zindros",
+  "author": "GMP, MPHF, CC",
   "license": "MIT",
   "dependencies": {
     "@noble/ed25519": "^1.7.1",
