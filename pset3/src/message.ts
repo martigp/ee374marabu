@@ -47,7 +47,8 @@ const ErrorChoices = Union(
   Literal('INVALID_TX_OUTPOINT'),
   Literal('UNKNOWN_OBJECT'),
   Literal('INVALID_TX_SIGNATURE'),
-  Literal('INVALID_TX_CONSERVATION')
+  Literal('INVALID_TX_CONSERVATION'),
+  Literal('INVALID_BLOCK_POW')
 )
 
 export const ErrorMessage = Record({

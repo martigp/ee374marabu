@@ -1,12 +1,10 @@
 import { logger } from './logger'
 import { MessageSocket } from './network'
-import semver from 'semver'
 import * as mess from './message'
 import { peerManager } from './peermanager'
 import { canonicalize } from 'json-canonicalize'
 import { objectManager } from './objectmanager'
 import * as obj from './application_objects/object'
-import * as ed from '@noble/ed25519'
 import { Union } from 'runtypes'
 
 const VERSION = '0.9.0'
@@ -84,6 +82,7 @@ export class Peer {
     return await this.fatalError(new mess.AnnotatedError('INVALID_FORMAT', 'Timed out before message was complete'))
   }
   async onMessage(message: string) {
+
     this.debug(`Message arrival: ${message}`)
 
     let msg: object
@@ -114,8 +113,9 @@ export class Peer {
       this.onMessageError.bind(this),
       this.onMessageIHaveObject.bind(this),
       this.onMessageGetObject.bind(this), 
-      this.onMessageObject.bind(this), 
+      this.onMessageObject.bind(this),
     )(msg)
+    // Does nothing if doesn't fit any of these formats
   }
 
   async onMessageHello(msg: mess.HelloMessageType) {
@@ -140,7 +140,7 @@ export class Peer {
 
   async onMessageGetObject(msg: mess.GetObjectMessageType) {
     this.info(`Remote party is requesting object with ID ${msg.objectid}.`)
-    if (!/[0-9a-f]{64}/.test(msg.objectid)) {
+    if (!obj.validObjectIdFormat(msg.objectid)) {
       return await this.fatalError(new mess.AnnotatedError('INVALID_FORMAT', `Invalid blake2 hash for objectid`));
     }
     if(objectManager.knownObjects.has(msg.objectid)){
@@ -148,15 +148,28 @@ export class Peer {
       await this.sendObject(msg.objectid)
     }
     else{ 
-      this.info(`I don't have object with ID ${msg.objectid}. Ignoring`)
+      this.info(`I don't have object gitwith ID ${msg.objectid}`)
+    }
+  }
+
+  async onMessageIHaveObject(msg: mess.IHaveObjectMessageType) {
+    this.info(`Remote party is reporting knowledge of an object with ID ${msg.objectid}`);
+    if (!obj.validObjectIdFormat(msg.objectid)) {
+      return await this.fatalError(new mess.AnnotatedError('INVALID_FORMAT', `Invalid objectid ${msg.objectid}`));
+    }
+    if(!objectManager.knownObjects.has(msg.objectid)){ 
+      this.info(`I dont have object with ID ${msg.objectid}. Requesting from remote party`)
+      await this.sendGetObject(msg.objectid)
+    }
+    else{ 
+      this.info(`I already have object with ID ${msg.objectid}`)
     }
   }
 
   async onMessageObject(msg: mess.ObjectMessageType) {
-    this.info(`Remote party is sending object: ${msg.object}`)
+    this.info(`Remote party is sending object: ${canonicalize(msg.object)}`)
     let objectid: String = objectManager.getObjectID(msg.object)
     if(!objectManager.knownObjects.has(objectid)){
-      this.info(`I didn't have object with ID : ${objectid}. Saving object and gossiping to my peers`)
       obj.ApplicationObject.match(
         (block : obj.BlockObjectType) => this.onBlockObject(block, objectid), 
         (tx : obj.TxObjectType) => this.onTxObject(tx, objectid),
@@ -168,30 +181,25 @@ export class Peer {
     }
   }
 
-  async onMessageIHaveObject(msg: mess.IHaveObjectMessageType) {
-    this.info(`Remote party is reporting knowledge of an object with ID ${msg.objectid}`);
-    if (!/[0-9a-f]{64}/.test(msg.objectid)) {
-      return await this.fatalError(new mess.AnnotatedError('INVALID_FORMAT', `Invalid blake2 hash for objectid`));
+  // Function for parsing Block Object
+  async onBlockObject(block : obj.BlockObjectType, blockid : String) {
+    logger.debug(`Received Block object: ${canonicalize(block)}`);
+    if (!obj.validBlockFormat(block)) {
+      return await this.fatalError(new mess.AnnotatedError('INVALID_FORMAT',
+                          `Block Object had invalid format`));
     }
-    if(!objectManager.knownObjects.has(msg.objectid)){ 
-      this.info(`I dont have object with ID ${msg.objectid}. Requesting from remote party`)
-      await this.sendGetObject(msg.objectid)
+    if (!obj.validPOW(block)) {
+      return await this.fatalError(new mess.AnnotatedError('INVALID_BLOCK_POW',``));
     }
-    else{ 
-      this.info(`I already have object with ID ${msg.objectid}`)
-    }
-  }
-
-  onBlockObject(object : obj.BlockObjectType, objectid : String) {
-    logger.debug(`Received Block object: ${canonicalize(object)}`);
-    objectManager.objectDiscovered(object, objectid);
+    logger.info("Valid POW");
+    objectManager.objectDiscovered(block, blockid);
     this.socket.emit('gossip', {
       type: 'ihaveobject',
-      objectid: objectid 
+      objectid: blockid 
     });
   }
 
-  onCoinbaseObject(object : obj.CoinbaseObjectType, objectid : String) {
+  async onCoinbaseObject(object : obj.CoinbaseObjectType, objectid : String) {
     logger.debug(`Received Coinbase object:  ${canonicalize(object)}`);
     objectManager.objectDiscovered(object, objectid);
     this.socket.emit('gossip', {
@@ -200,17 +208,21 @@ export class Peer {
     });
   }
 
-  verify_sig(sig : string, noSigTx : any, pubkey: string) : Promise<boolean> {
-    let char_array : string[] = canonicalize(noSigTx).split("");
-    var hex_message = Uint8Array.from(char_array.map(x => x.charCodeAt(0)))
-    return ed.verify(sig, hex_message, pubkey)
-  }
+  async onTxObject(object : obj.TxObjectType, txid : String) {
 
-  async onTxObject(object : obj.TxObjectType, objectid : String) {
+    if(!obj.validTxFormat(object)) {
+      return await this.fatalError(new mess.AnnotatedError('INVALID_FORMAT',
+                          `Transcation Object had invalid format`));
+    }
 
-    // Get signed message but nullify the pubkey
-    const noSigTx = JSON.parse(JSON.stringify(object));
+    // Get Tx with nullified pubkeys for signature validation
+    const noSigTx = JSON.parse(JSON.stringify(object))
     for (const input of noSigTx.inputs) {
+      // Check for null signatures
+      if (input.sig === null) {
+        return await this.sendError(new mess.AnnotatedError('INVALID_TX_SIGNATURE',
+                                          `Signature null on an input`));
+      }
       input.sig = null;
     }
 
@@ -218,36 +230,36 @@ export class Peer {
     let inputNo = 0;
     logger.debug(`The inputs ${canonicalize(object.inputs)}`)
     for(const input of object.inputs) {
+
       let res = objectManager.getObject(input.outpoint.txid)
       if(!res.success) {
-        return await this.fatalError(new mess.AnnotatedError('UNKNOWN_OBJECT',
+        return await this.sendError(new mess.AnnotatedError('UNKNOWN_OBJECT',
         `Input Objectid ${input.outpoint.txid} not found locally`));
       }
-      let storedInput = res.object;
-      logger.debug(`Stored boject ${canonicalize(storedInput)}`)
-      if(Union(obj.TxObject, obj.CoinbaseObject).guard(storedInput)) {
-        if (storedInput.outputs.length <= input.outpoint.index) {
-          return await this.fatalError(new mess.AnnotatedError('INVALID_TX_OUTPOINT',
+      let prevTx = res.object;
+      logger.debug(`Stored boject ${canonicalize(prevTx)}`)
+      if(Union(obj.TxObject, obj.CoinbaseObject).guard(prevTx)) {
+        let ind = input.outpoint.index;
+        if (prevTx.outputs.length <= ind)
+          return await this.sendError(new mess.AnnotatedError('INVALID_TX_OUTPOINT',
                                           `Index ${input.outpoint.index} too large`));
+
+        // Shows error here but isn't an issue because we verify above that 
+        // all signatures are non null.
+        let valid_sig : boolean = false;
+        if (input.sig) {
+          valid_sig = await obj.verifySig(input.sig, noSigTx,
+                                  prevTx.outputs[input.outpoint.index].pubkey);
         }
-
-        let valid_sig : boolean = await this.verify_sig(input.sig, noSigTx,
-                    storedInput.outputs[input.outpoint.index].pubkey);
-
         if(!valid_sig) {
-          return await this.fatalError(new mess.AnnotatedError('INVALID_TX_SIGNATURE',
-                                          `Bad sig on ${noSigTx}`));
+          return await this.sendError(new mess.AnnotatedError('INVALID_TX_SIGNATURE',
+                                          `Bad sig on ${canonicalize(noSigTx)}`));
         }
 
-        let val = storedInput.outputs[input.outpoint.index].value;
-        
-        if (val < 0) {
-          return await this.fatalError(new mess.AnnotatedError('INVALID_FORMAT',
-                                          `${val} less than zero on input ${inputNo}`));
-        }
+        let val = prevTx.outputs[input.outpoint.index].value;
       
-        sumInputs += storedInput.outputs[input.outpoint.index].value;
-        logger.debug(`Input with value ${storedInput.outputs[input.outpoint.index].value} verified`)
+        sumInputs += val
+        logger.debug(`Input with value ${prevTx.outputs[input.outpoint.index].value} verified`)
       }
       inputNo += 1;
     }
@@ -266,12 +278,12 @@ export class Peer {
     }
 
     if (sumInputs < sumOutputs)
-      return await this.fatalError(new mess.AnnotatedError('INVALID_TX_CONSERVATION',`, Inputs: ${sumInputs}, Outputs: ${sumOutputs}`));
+      return await this.sendError(new mess.AnnotatedError('INVALID_TX_CONSERVATION',`, Inputs: ${sumInputs}, Outputs: ${sumOutputs}`));
     
-    objectManager.objectDiscovered(object, objectid);
+    objectManager.objectDiscovered(object, txid);
     this.socket.emit('gossip', {
       type: 'ihaveobject',
-      objectid: objectid 
+      objectid: txid 
     });
   }
 
