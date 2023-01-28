@@ -29,7 +29,7 @@ class ApplicationObjectManager {
     await db.put('objects', [...this.knownObjects])
   }
   
-  getObjectID(object: obj.ApplicationObjectType) : String { 
+  getObjectID(object: obj.ApplicationObjectType) : string { 
     const object_canon: string = canonicalize(object)
     logger.info(`Attempting to hash hashed from ${object_canon}`)
     var blake2 = require('blake2');
@@ -40,14 +40,14 @@ class ApplicationObjectManager {
     return objectid; 
   }
 
-  getObject(objectid: String) {
+  getObject(objectid: string) {
       return {
         "success" : this.knownObjects.has(objectid),
         "object" : this.knownObjects.get(objectid)
       }
   }
 
-  objectDiscovered(object: obj.ApplicationObjectType, objectid: String) {
+  objectDiscovered(object: obj.ApplicationObjectType, objectid: string) {
     this.knownObjects.set(objectid, object); 
     this.store();
   }

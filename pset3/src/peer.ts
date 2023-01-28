@@ -168,7 +168,7 @@ export class Peer {
 
   async onMessageObject(msg: mess.ObjectMessageType) {
     this.info(`Remote party is sending object: ${canonicalize(msg.object)}`)
-    let objectid: String = objectManager.getObjectID(msg.object)
+    let objectid: string = objectManager.getObjectID(msg.object)
     if(!objectManager.knownObjects.has(objectid)){
       obj.ApplicationObject.match(
         (block : obj.BlockObjectType) => this.onBlockObject(block, objectid), 
@@ -182,7 +182,7 @@ export class Peer {
   }
 
   // Function for parsing Block Object
-  async onBlockObject(block : obj.BlockObjectType, blockid : String) {
+  async onBlockObject(block : obj.BlockObjectType, blockid : string) {
     logger.debug(`Received Block object: ${canonicalize(block)}`);
     if (!obj.validBlockFormat(block)) {
       return await this.fatalError(new mess.AnnotatedError('INVALID_FORMAT',
@@ -191,7 +191,22 @@ export class Peer {
     if (!obj.validPOW(block)) {
       return await this.fatalError(new mess.AnnotatedError('INVALID_BLOCK_POW',``));
     }
-    logger.info("Valid POW");
+    logger.debug("Valid POW");
+
+    // Iterating through transactions to add to DB
+    // Probably want to set a timeout to do this!
+    //async fun now!
+    for (const txid of block.txids) {
+      if (!objectManager.knownObjects.has(txid)) {
+        this.info(`I dont have tx with : ${txid} in block ${blockid}`)
+        // Communicate to all 
+        // Could have some global counter inside verify when recieve
+        this.socket.emit('getobject', {
+          type: 'ihaveobject',
+          objectid: blockid 
+        });
+      }
+    }
     objectManager.objectDiscovered(block, blockid);
     this.socket.emit('gossip', {
       type: 'ihaveobject',
@@ -199,7 +214,7 @@ export class Peer {
     });
   }
 
-  async onCoinbaseObject(object : obj.CoinbaseObjectType, objectid : String) {
+  async onCoinbaseObject(object : obj.CoinbaseObjectType, objectid : string) {
     logger.debug(`Received Coinbase object:  ${canonicalize(object)}`);
     objectManager.objectDiscovered(object, objectid);
     this.socket.emit('gossip', {
@@ -208,7 +223,7 @@ export class Peer {
     });
   }
 
-  async onTxObject(object : obj.TxObjectType, txid : String) {
+  async onTxObject(object : obj.TxObjectType, txid : string) {
 
     if(!obj.validTxFormat(object)) {
       return await this.fatalError(new mess.AnnotatedError('INVALID_FORMAT',
