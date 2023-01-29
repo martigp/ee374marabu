@@ -1,14 +1,21 @@
 import { logger } from './logger'
 import { MessageSocket } from './network'
-import * as mess from './message'
+import semver from 'semver'
+import { AnnotatedError,
+         Message,
+         HelloMessage,
+         HelloMessageType,
+         PeersMessageType, GetPeersMessageType,
+         IHaveObjectMessageType, GetObjectMessageType, ObjectMessageType,
+         ErrorMessageType } from './message'
 import { peerManager } from './peermanager'
 import { canonicalize } from 'json-canonicalize'
-import { objectManager } from './objectmanager'
-import * as obj from './application_objects/object'
-import { Union } from 'runtypes'
+import { db, ObjectStorage } from './store'
+import { network } from './network'
+import { ObjectId } from './store'
 
 const VERSION = '0.9.0'
-const NAME = 'Gordon & Mapau'
+const NAME = 'Malibu (pset2)'
 
 export class Peer {
   active: boolean = false
@@ -33,41 +40,38 @@ export class Peer {
       peers: [...peerManager.knownPeers]
     })
   }
-
-  async sendGetObject(objectid: String) {
-    this.sendMessage({
-      type: 'getobject', 
-      objectid: objectid
-    })
-  }
-  async sendObject(objectid: String) {
-    this.sendMessage({
-      type: 'object',
-      object: objectManager.knownObjects.get(objectid)
-    })
-  }
-  async sendIHaveObject(objectid: String) {
+  async sendIHaveObject(obj: any) {
     this.sendMessage({
       type: 'ihaveobject',
-      objectid: objectid 
+      objectid: ObjectStorage.id(obj)
     })
   }
-
-  async sendError(err: mess.AnnotatedError) {
+  async sendObject(obj: any) {
+    this.sendMessage({
+      type: 'object',
+      object: obj
+    })
+  }
+  async sendGetObject(objid: ObjectId) {
+    this.sendMessage({
+      type: 'getobject',
+      objectid: objid
+    })
+  }
+  async sendError(err: AnnotatedError) {
     try {
       this.sendMessage(err.getJSON())
     } catch (error) {
-      this.sendMessage(new mess.AnnotatedError('INTERNAL_ERROR', `Failed to serialize error message: ${error}`).getJSON())
+      this.sendMessage(new AnnotatedError('INTERNAL_ERROR', `Failed to serialize error message: ${error}`).getJSON())
     }
   }
-
   sendMessage(obj: object) {
     const message: string = canonicalize(obj)
 
     this.debug(`Sending message: ${message}`)
     this.socket.sendMessage(message)
   }
-  async fatalError(err: mess.AnnotatedError) {
+  async fatalError(err: AnnotatedError) {
     await this.sendError(err)
     this.warn(`Peer error: ${err}`)
     this.active = false
@@ -79,10 +83,9 @@ export class Peer {
     await this.sendGetPeers()
   }
   async onTimeout() {
-    return await this.fatalError(new mess.AnnotatedError('INVALID_FORMAT', 'Timed out before message was complete'))
+    return await this.fatalError(new AnnotatedError('INVALID_FORMAT', 'Timed out before message was complete'))
   }
   async onMessage(message: string) {
-
     this.debug(`Message arrival: ${message}`)
 
     let msg: object
@@ -90,232 +93,119 @@ export class Peer {
     try {
       msg = JSON.parse(message)
       this.debug(`Parsed message into: ${JSON.stringify(msg)}`)
+    } catch {
+      return await this.fatalError(new AnnotatedError('INVALID_FORMAT', `Failed to parse incoming message as JSON: ${message}`))
     }
-    catch {
-      return await this.fatalError(new mess.AnnotatedError('INVALID_FORMAT', `Failed to parse incoming message as JSON: ${message}`))
-    }
-    if (!mess.Message.guard(msg)) {
-      return await this.fatalError(new mess.AnnotatedError('INVALID_FORMAT', `The received message does not match one of the known message formats: ${message}`))
+    if (!Message.guard(msg)) {
+      const validation = Message.validate(msg)
+      return await this.fatalError(new AnnotatedError(
+        'INVALID_FORMAT', 
+        `The received message does not match one of the known message formats: ${message}
+         Validation error: ${JSON.stringify(validation)}`
+      ))
     }
     if (!this.handshakeCompleted) {
-      if (mess.HelloMessage.guard(msg)) {
+      if (HelloMessage.guard(msg)) {
         return this.onMessageHello(msg)
       }
-      return await this.fatalError(new mess.AnnotatedError('INVALID_HANDSHAKE', `Received message ${message} prior to "hello"`))
+      return await this.fatalError(new AnnotatedError('INVALID_HANDSHAKE', `Received message ${message} prior to "hello"`))
     }
-
-    mess.Message.match(
+    Message.match(
       async () => {
-        return await this.fatalError(new mess.AnnotatedError('INVALID_HANDSHAKE', `Received a second "hello" message, even though handshake is completed`))
+        return await this.fatalError(new AnnotatedError('INVALID_HANDSHAKE', `Received a second "hello" message, even though handshake is completed`))
       },
       this.onMessageGetPeers.bind(this),
       this.onMessagePeers.bind(this),
-      this.onMessageError.bind(this),
       this.onMessageIHaveObject.bind(this),
-      this.onMessageGetObject.bind(this), 
+      this.onMessageGetObject.bind(this),
       this.onMessageObject.bind(this),
+      this.onMessageError.bind(this)
     )(msg)
-    // Does nothing if doesn't fit any of these formats
   }
-
-  async onMessageHello(msg: mess.HelloMessageType) {
-    if (!/0\.9\.0/.test(msg.version)) {
-      return await this.fatalError(new mess.AnnotatedError('INVALID_FORMAT', `You sent an incorrect version (${msg.version}), which is not compatible with this node's version ${VERSION}.`))
+  async onMessageHello(msg: HelloMessageType) {
+    if (!semver.satisfies(msg.version, `^${VERSION}`)) {
+      return await this.fatalError(new AnnotatedError('INVALID_FORMAT', `You sent an incorrect version (${msg.version}), which is not compatible with this node's version ${VERSION}.`))
     }
     this.info(`Handshake completed. Remote peer running ${msg.agent} at protocol version ${msg.version}`)
-    this.handshakeCompleted = true;
-    this.socket.emit('handshake_complete');
+    this.handshakeCompleted = true
   }
-  async onMessagePeers(msg: mess.PeersMessageType) {
+  async onMessagePeers(msg: PeersMessageType) {
     for (const peer of msg.peers) {
-      //this.info(`Remote party reports knowledge of peer ${peer}`)
+      this.info(`Remote party reports knowledge of peer ${peer}`)
+
       peerManager.peerDiscovered(peer)
     }
   }
-
-  async onMessageGetPeers(msg: mess.GetPeersMessageType) {
+  async onMessageGetPeers(msg: GetPeersMessageType) {
     this.info(`Remote party is requesting peers. Sharing.`)
     await this.sendPeers()
   }
+  async onMessageIHaveObject(msg: IHaveObjectMessageType) {
+    this.info(`Peer claims knowledge of: ${msg.objectid}`)
 
-  async onMessageGetObject(msg: mess.GetObjectMessageType) {
-    this.info(`Remote party is requesting object with ID ${msg.objectid}.`)
-    if (!obj.validObjectIdFormat(msg.objectid)) {
-      return await this.fatalError(new mess.AnnotatedError('INVALID_FORMAT', `Invalid blake2 hash for objectid`));
-    }
-    if(objectManager.knownObjects.has(msg.objectid)){
-      this.info(`I have object with ID ${msg.objectid}. Sharing`)
-      await this.sendObject(msg.objectid)
-    }
-    else{ 
-      this.info(`I don't have object gitwith ID ${msg.objectid}`)
-    }
-  }
-
-  async onMessageIHaveObject(msg: mess.IHaveObjectMessageType) {
-    this.info(`Remote party is reporting knowledge of an object with ID ${msg.objectid}`);
-    if (!obj.validObjectIdFormat(msg.objectid)) {
-      return await this.fatalError(new mess.AnnotatedError('INVALID_FORMAT', `Invalid objectid ${msg.objectid}`));
-    }
-    if(!objectManager.knownObjects.has(msg.objectid)){ 
-      this.info(`I dont have object with ID ${msg.objectid}. Requesting from remote party`)
+    if (!await db.exists(msg.objectid)) {
+      this.info(`Object ${msg.objectid} discovered`)
       await this.sendGetObject(msg.objectid)
     }
-    else{ 
-      this.info(`I already have object with ID ${msg.objectid}`)
-    }
   }
+  async onMessageGetObject(msg: GetObjectMessageType) {
+    this.info(`Peer requested object with id: ${msg.objectid}`)
 
-  async onMessageObject(msg: mess.ObjectMessageType) {
-    this.info(`Remote party is sending object: ${canonicalize(msg.object)}`)
-    let objectid: string = objectManager.getObjectID(msg.object)
-    if(!objectManager.knownObjects.has(objectid)){
-      obj.ApplicationObject.match(
-        (block : obj.BlockObjectType) => this.onBlockObject(block, objectid), 
-        (tx : obj.TxObjectType) => this.onTxObject(tx, objectid),
-        (coinbase : obj.CoinbaseObjectType) => this.onCoinbaseObject(coinbase, objectid),
-      )(msg.object);
+    let obj
+    try {
+      obj = await ObjectStorage.get(msg.objectid)
+    } catch {
+      this.warn(`We don't have the requested object with id: ${msg.objectid}`)
+      this.sendError(new AnnotatedError('UNKNOWN_OBJECT', `Unknown object with id ${msg.objectid}`))
+      return
     }
-    else{ 
-      this.info(`I already had object with ID : ${objectid}. Ignored`)
-    }
+    await this.sendObject(obj)
   }
+  async onMessageObject(msg: ObjectMessageType) {
+    const objectid: ObjectId = ObjectStorage.id(msg.object)
 
-  // Function for parsing Block Object
-  async onBlockObject(block : obj.BlockObjectType, blockid : string) {
-    logger.debug(`Received Block object: ${canonicalize(block)}`);
-    if (!obj.validBlockFormat(block)) {
-      return await this.fatalError(new mess.AnnotatedError('INVALID_FORMAT',
-                          `Block Object had invalid format`));
-    }
-    if (!obj.validPOW(block)) {
-      return await this.fatalError(new mess.AnnotatedError('INVALID_BLOCK_POW',``));
-    }
-    logger.debug("Valid POW");
+    this.info(`Received object with id ${objectid}: %o`, msg.object)
 
-    // Iterating through transactions to add to DB
-    // Probably want to set a timeout to do this!
-    //async fun now!
-    for (const txid of block.txids) {
-      if (!objectManager.knownObjects.has(txid)) {
-        this.info(`I dont have tx with : ${txid} in block ${blockid}`)
-        // Communicate to all 
-        // Could have some global counter inside verify when recieve
-        this.socket.emit('getobject', {
-          type: 'ihaveobject',
-          objectid: blockid 
-        });
-      }
+    if (await ObjectStorage.exists(objectid)) {
+      this.debug(`Object with id ${objectid} is already known`)
+      return
     }
-    objectManager.objectDiscovered(block, blockid);
-    this.socket.emit('gossip', {
+    this.info(`New object with id ${objectid} downloaded: %o`, msg.object)
+
+    try {
+      await ObjectStorage.validate(msg.object)
+    }
+    catch (e: any) {
+      this.sendError(e)
+      return
+    }
+
+    await ObjectStorage.put(msg.object)
+
+    // gossip
+    network.broadcast({
       type: 'ihaveobject',
-      objectid: blockid 
-    });
+      objectid: objectid
+    })
   }
-
-  async onCoinbaseObject(object : obj.CoinbaseObjectType, objectid : string) {
-    logger.debug(`Received Coinbase object:  ${canonicalize(object)}`);
-    objectManager.objectDiscovered(object, objectid);
-    this.socket.emit('gossip', {
-      type: 'ihaveobject',
-      objectid: objectid 
-    });
-  }
-
-  async onTxObject(object : obj.TxObjectType, txid : string) {
-
-    if(!obj.validTxFormat(object)) {
-      return await this.fatalError(new mess.AnnotatedError('INVALID_FORMAT',
-                          `Transcation Object had invalid format`));
-    }
-
-    // Get Tx with nullified pubkeys for signature validation
-    const noSigTx = JSON.parse(JSON.stringify(object))
-    for (const input of noSigTx.inputs) {
-      // Check for null signatures
-      if (input.sig === null) {
-        return await this.sendError(new mess.AnnotatedError('INVALID_TX_SIGNATURE',
-                                          `Signature null on an input`));
-      }
-      input.sig = null;
-    }
-
-    let sumInputs = 0;
-    let inputNo = 0;
-    logger.debug(`The inputs ${canonicalize(object.inputs)}`)
-    for(const input of object.inputs) {
-
-      let res = objectManager.getObject(input.outpoint.txid)
-      if(!res.success) {
-        return await this.sendError(new mess.AnnotatedError('UNKNOWN_OBJECT',
-        `Input Objectid ${input.outpoint.txid} not found locally`));
-      }
-      let prevTx = res.object;
-      logger.debug(`Stored boject ${canonicalize(prevTx)}`)
-      if(Union(obj.TxObject, obj.CoinbaseObject).guard(prevTx)) {
-        let ind = input.outpoint.index;
-        if (prevTx.outputs.length <= ind)
-          return await this.sendError(new mess.AnnotatedError('INVALID_TX_OUTPOINT',
-                                          `Index ${input.outpoint.index} too large`));
-
-        // Shows error here but isn't an issue because we verify above that 
-        // all signatures are non null.
-        let valid_sig : boolean = false;
-        if (input.sig) {
-          valid_sig = await obj.verifySig(input.sig, noSigTx,
-                                  prevTx.outputs[input.outpoint.index].pubkey);
-        }
-        if(!valid_sig) {
-          return await this.sendError(new mess.AnnotatedError('INVALID_TX_SIGNATURE',
-                                          `Bad sig on ${canonicalize(noSigTx)}`));
-        }
-
-        let val = prevTx.outputs[input.outpoint.index].value;
-      
-        sumInputs += val
-        logger.debug(`Input with value ${prevTx.outputs[input.outpoint.index].value} verified`)
-      }
-      inputNo += 1;
-    }
-    
-    logger.debug(`Valid inputs`);
-
-    let sumOutputs = 0;
-    let outputNo = 0;
-    for(const output of object.outputs) {
-      if (output.value < 0) {
-        return await this.fatalError(new mess.AnnotatedError('INVALID_FORMAT',
-                                          `${output.value} less than zero on output ${outputNo}`));
-      }
-      sumOutputs += output.value;
-      outputNo += 1;
-    }
-
-    if (sumInputs < sumOutputs)
-      return await this.sendError(new mess.AnnotatedError('INVALID_TX_CONSERVATION',`, Inputs: ${sumInputs}, Outputs: ${sumOutputs}`));
-    
-    objectManager.objectDiscovered(object, txid);
-    this.socket.emit('gossip', {
-      type: 'ihaveobject',
-      objectid: txid 
-    });
-  }
-
-  async onMessageError(msg: mess.ErrorMessageType) {
+  async onMessageError(msg: ErrorMessageType) {
     this.warn(`Peer reported error: ${msg.name}`)
   }
-  log(level: string, message: string) {
-    logger.log(level, `[peer ${this.socket.peerAddr}] ${message}`)
+  log(level: string, message: string, ...args: any[]) {
+    logger.log(
+      level,
+      `[peer ${this.socket.peerAddr}:${this.socket.netSocket.remotePort}] ${message}`,
+      ...args
+    )
   }
-  warn(message: string) {
-    this.log('warn', message)
+  warn(message: string, ...args: any[]) {
+    this.log('warn', message, ...args)
   }
-  info(message: string) {
-    this.log('info', message)
+  info(message: string, ...args: any[]) {
+    this.log('info', message, ...args)
   }
-  debug(message: string) {
-    this.log('debug', message)
+  debug(message: string, ...args: any[]) {
+    this.log('debug', message, ...args)
   }
   constructor(socket: MessageSocket) {
     this.socket = socket

@@ -3,55 +3,43 @@ import { logger } from './logger'
 import { Peer } from './peer'
 import { EventEmitter } from 'events'
 import { peerManager } from './peermanager'
-import { objectManager } from './objectmanager'
-import { canonicalize } from 'json-canonicalize'
 
 const TIMEOUT_DELAY = 10000 // 10 seconds
 const MAX_BUFFER_SIZE = 100 * 1024 // 100 kB
 
-export class Network {
+class Network {
   peers: Peer[] = []
 
   async init(bindPort: number, bindIP: string) {
     await peerManager.load()
-    await objectManager.load()
 
-    // Create server and when listening, and for each new connection send a
-    // hello and getpeers message.
-    const server = net.createServer((socket) => {
+    const server = net.createServer(socket => {
       logger.info(`New connection from peer ${socket.remoteAddress}`)
       const peer = new Peer(new MessageSocket(socket, `${socket.remoteAddress}:${socket.remotePort}`))
       this.peers.push(peer)
       peer.onConnect()
-      peer.socket.on('gossip', (gossipMsg) => {
-        logger.debug(`Gossip event received with msg ${canonicalize(gossipMsg)}`);
-        for(const gossipPeer of this.peers) {
-          logger.info(`Attempting to gossip to peer: ${gossipPeer.socket.peerAddr}`)
-          gossipPeer.sendMessage(gossipMsg);
-        }
-      });
     })
 
     logger.info(`Listening for connections on port ${bindPort} and IP ${bindIP}`)
     server.listen(bindPort, bindIP)
 
-    // Being a client to every single of the known peers as well
     for (const peerAddr of peerManager.knownPeers) {
       logger.info(`Attempting connection to known peer ${peerAddr}`)
       try {
         const peer = new Peer(MessageSocket.createClient(peerAddr))
         this.peers.push(peer)
-        peer.socket.on('gossip', (gossipMsg) => {
-          logger.debug(`Gossip event received with msg ${canonicalize(gossipMsg)}`);
-          logger.debug(`List of peers sending to:\n${this.peers}`);
-          for(const gossipPeer of this.peers) {
-            logger.info(`Attempting to gossip to peer: ${gossipPeer.socket.peerAddr}`)
-            gossipPeer.sendMessage(gossipMsg);
-          }
-        });
       }
       catch (e: any) {
         logger.warn(`Failed to create connection to peer ${peerAddr}: ${e.message}`)
+      }
+    }
+  }
+  broadcast(obj: object) {
+    logger.info(`Broadcasting object to all peers: %o`, obj)
+
+    for (const peer of this.peers) {
+      if (peer.active) {
+        peer.sendMessage(obj) // intentionally delayed
       }
     }
   }
@@ -112,3 +100,5 @@ export class MessageSocket extends EventEmitter {
     this.netSocket.end()
   }
 }
+
+export const network = new Network()
