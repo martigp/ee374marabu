@@ -8,6 +8,7 @@ const Sig = String.withConstraint(s => /^[0-9a-f]{128}$/.test(s))
 const PK = String.withConstraint(s => /^[0-9a-f]{64}$/.test(s))
 const NonNegative = Number.withConstraint(n => n >= 0)
 const Coins = NonNegative
+const Student = String.withConstraint(s => /^[0-9a-z]{128}$/.test(s))
 
 export const OutpointObject = Record({
   txid: Hash,
@@ -48,7 +49,9 @@ export const BlockObject = Record({
   created: Number,
   T: Hash,
   miner: Optional(String), //TODO should these be optional? 
-  note: Optional(String)
+  note: Optional(String),
+  studentids: Optional(Array(Student)) 
+
 })
 export type BlockObjectType = Static<typeof BlockObject>
 

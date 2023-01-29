@@ -4,6 +4,7 @@ import level from 'level-ts'
 import { canonicalize } from 'json-canonicalize'
 import { AnnotatedError, TransactionObject, ObjectType, BlockObject } from './message'
 import { Transaction } from './transaction'
+import { Block } from './block'
 import { logger } from './logger'
 import { hash } from './crypto/hash'
 
@@ -43,6 +44,13 @@ export class ObjectStorage {
       }
       const tx = Transaction.fromNetworkObject(object)
       await tx.validate()
+    }
+    else if(object.type == 'block'){
+      if (!BlockObject.guard(object)) {
+        throw new AnnotatedError('INVALID_FORMAT', 'Failed to parse block object')
+      }
+      const block = Block.fromNetworkObject(object)
+      await block.validate()
     }
   }
 
