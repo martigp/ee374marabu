@@ -53,6 +53,10 @@ export class Block { //TODO: typing for this?
     async validate() {
         let genesis_count: number = 0
         let genesis_id = ''
+        let genesis_value = 0
+        let sum_inputs = 0 
+        let sum_outputs = 0 
+
         const unsignedBlockStr = canonicalize(this.toNetworkObject())
 
         if (this.T !== '00000000abc00000000000000000000000000000000000000000000000000000') {
@@ -77,6 +81,9 @@ export class Block { //TODO: typing for this?
             }
             let obj = await Transaction.byId(txid);
             if (obj.inputs.length == 0) { //TODO: if this is how a coinbase transaction is identified 
+                if(obj.outputs.length != 1 || obj.height == null){ //is this the right way
+                    throw new AnnotatedError('INVALID_FORMAT', 'Outputs length != 0 or there is a no height')
+                }
                 if (genesis_count == 1) {
                     throw new AnnotatedError('INVALID_BLOCK_COINBASE', 'There can only be one genesis transaction per block. There is more')
                 }
@@ -87,6 +94,7 @@ export class Block { //TODO: typing for this?
                     else {
                         genesis_count += 1
                         genesis_id = ObjectStorage.id(obj) //TODO: is this the right object ID 
+                        genesis_value = obj.outputs[0].value; //
                     }
                 }
             }
@@ -97,10 +105,22 @@ export class Block { //TODO: typing for this?
                         if(prevtxid === genesis_id){ //am i comparing the right two things 
                             throw new AnnotatedError('INVALID_TX_OUTPOINT', 'You cannot spend genesis in the same block it exists in')
                         }
+                        //sum_inputs += input. TODO: add to input sum 
+
                         return prevtxid
                     })
                 )
-               
+                const outputValues = ( //this feels like the wrong way to do this 
+                    obj.outputs.map(async (output, j) => {
+                        sum_outputs += output.value
+                        return output.pubkey
+                    })
+                )
+            }
+            //weak law of conservation 
+            if(((sum_inputs - sum_outputs) + 50 * 10 ^12) < genesis_value){ 
+                throw new AnnotatedError('INVALID_BLOCK_COINBASE', 'You are breaking the weak law of conservation')
+
             }
         }
     }
