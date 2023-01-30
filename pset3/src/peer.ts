@@ -176,12 +176,13 @@ export class Peer {
       await ObjectStorage.validate(msg.object)
     }
     catch (e: any) {
+      // TODO: Shouldn't this destroy connection if it is INVALID_FORMAT
       this.sendError(e)
       return
     }
 
     await ObjectStorage.put(msg.object)
-
+    network.emit(objectid, "Valid object found")
     // gossip
     network.broadcast({
       type: 'ihaveobject',

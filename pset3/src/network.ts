@@ -4,10 +4,10 @@ import { Peer } from './peer'
 import { EventEmitter } from 'events'
 import { peerManager } from './peermanager'
 
-const TIMEOUT_DELAY = 10000 // 10 seconds
+export const TIMEOUT_DELAY = 10000 // 10 seconds
 const MAX_BUFFER_SIZE = 100 * 1024 // 100 kB
 
-class Network {
+class Network extends EventEmitter {
   peers: Peer[] = []
 
   async init(bindPort: number, bindIP: string) {
@@ -42,6 +42,9 @@ class Network {
         peer.sendMessage(obj) // intentionally delayed
       }
     }
+  }
+  constructor() {
+    super()
   }
 }
 

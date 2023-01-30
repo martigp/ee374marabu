@@ -7,8 +7,12 @@ import {
 import { PublicKey, Signature, ver } from './crypto/signature'
 import { canonicalize } from 'json-canonicalize'
 import { hash } from './crypto/hash'
-import { network } from './network'
+import { network, TIMEOUT_DELAY } from './network'
 import { Transaction } from './transaction'
+import { logger } from './logger'
+
+const T : string = "00000000abc00000000000000000000000000000000000000000000000000000"
+const BLOCK_REWARD : number = 50 * (10 ** 12)
 
 export class Block { //TODO: typing for this? 
     blockid: ObjectId
@@ -40,7 +44,9 @@ export class Block { //TODO: typing for this?
     static async byId(blockid: ObjectId): Promise<Block> {
         return this.fromNetworkObject(await ObjectStorage.get(blockid))
     }
+
     constructor(blockid: ObjectId, T: string, created: number, miner: string | null = null, nonce: string, note: string | null = null, previd: string | null, txids: ObjectId[], studentids: string[] | null = null) {
+        this.blockid = blockid
         this.T = T
         this.created = created
         this.miner = miner
@@ -50,78 +56,111 @@ export class Block { //TODO: typing for this?
         this.txids = txids
         this.studentids = studentids
     }
+
+    private async findTransaction(txid: ObjectId) {
+        return new Promise<void>((resolve, reject) => {
+            // Kinda slow is there a quicker way?
+            const timeout = setTimeout(()=> {
+                reject(new AnnotatedError("UNFINDABLE_OBJECT", `Valid tx with txid ${txid} unfindable)`))
+            }, TIMEOUT_DELAY)
+
+
+            network.once(txid, () => {
+                clearTimeout(timeout)
+                resolve()
+            })
+
+            network.broadcast({
+                type: 'getobject',
+                objectid: txid
+            });
+        })
+    }
+
     async validate() {
-        let genesis_count: number = 0
-        let genesis_id = ''
-        let genesis_value = 0
-        let sum_inputs = 0 
-        let sum_outputs = 0 
+        let coinbaseId = ''
+        let coinbaseValue = 0
+        let sumInputs = 0 
+        let sumOutputs = 0 
 
-        const unsignedBlockStr = canonicalize(this.toNetworkObject())
-
-        if (this.T !== '00000000abc00000000000000000000000000000000000000000000000000000') {
-            throw new AnnotatedError('INVALID_FORMAT', 'Failed to parse block object')
+        if (this.T !== T) {
+            throw new AnnotatedError('INVALID_FORMAT', `Invalid target ${this.T}`)
         }
 
         if (this.blockid > this.T) {
             throw new AnnotatedError('INVALID_BLOCK_POW', 'Failed to validate the proof of work')
         }
 
+        // Make sure we have all transactions
+        try {
+            let pendingTxs : Promise<void>[] = []
+            for (let i = 0; i < this.txids.length; i++) {
+                let txid: ObjectId = this.txids[i];
+                if (!(await ObjectStorage.exists(txid))) {
+                    pendingTxs.push(this.findTransaction(txid))
+                }
+            }
+            for(const pendingTx of pendingTxs) {
+                await pendingTx;
+            }
+
+        } catch(e) {
+            throw e
+        }
+        logger.debug("All Txes received")
+        // All Txs are valid / satisfy weak conservation
+        // Now just need to sum the transaction fees for each tx
         for (let i = 0; i < this.txids.length; i++) {
             let txid: ObjectId = this.txids[i];
             if (!(await ObjectStorage.exists(txid))) {
-                network.broadcast({
-                    type: 'getobject',
-                    objectid: txid
-                })
-                //TODO: how to wait for broadcast to be over? some sort of async await stuff 
+                throw new AnnotatedError('UNFINDABLE_OBJECT', 'One tx not stored in ')
             }
-            if (!(await ObjectStorage.exists(txid))) {
-                throw new AnnotatedError('UNFINDABLE_OBJECT', 'Failed to validate the proof of work')
-            }
-            let obj = await Transaction.byId(txid);
-            if (obj.inputs.length == 0) { //TODO: if this is how a coinbase transaction is identified 
-                if(obj.outputs.length != 1 || obj.height == null){ //is this the right way
+            let tx : Transaction = await Transaction.byId(txid);
+
+            // CoinbaseTx, only need to check output lenght is 1
+            if (tx.inputs.length === 0) { //TODO: if this is how a coinbase transaction is identified 
+                if(tx.outputs.length !== 1){
                     throw new AnnotatedError('INVALID_FORMAT', 'Outputs length != 0 or there is a no height')
                 }
-                if (genesis_count == 1) {
-                    throw new AnnotatedError('INVALID_BLOCK_COINBASE', 'There can only be one genesis transaction per block. There is more')
+                // More than one coinbase
+                if (coinbaseId) {
+                    throw new AnnotatedError('INVALID_BLOCK_COINBASE', 'There can only be one coinbase transaction per block. There is more')
                 }
+                //Not the first in the index
+                if (i !== 0) { 
+                    throw new AnnotatedError('INVALID_BLOCK_COINBASE', 'Coinbase transaction is not at index 0')
+                }
+                // Valid coinbase
                 else {
-                    if (i != 0) { //if it is no the first in the index 
-                        throw new AnnotatedError('INVALID_BLOCK_COINBASE', 'Genesis transaction is not at index 0')
-                    }
-                    else {
-                        genesis_count += 1
-                        genesis_id = ObjectStorage.id(obj) //TODO: is this the right object ID 
-                        genesis_value = obj.outputs[0].value; //
-                    }
+                    coinbaseId = ObjectStorage.id(tx) //TODO: is this the right object ID 
+                    coinbaseValue = tx.outputs[0].value; //
                 }
             }
+            // Spending Tx - get sum inputs and outputs
             else {
-                const inputValues = ( //this feels like the wrong way to do this 
-                    obj.inputs.map(async (input, j) => {
-                        const prevtxid = input.outpoint.txid
-                        if(prevtxid === genesis_id){ //am i comparing the right two things 
-                            throw new AnnotatedError('INVALID_TX_OUTPOINT', 'You cannot spend genesis in the same block it exists in')
+                const inputValues = await Promise.all(
+                    tx.inputs.map(async (input, i) => {
+                        if (input.outpoint.txid === coinbaseId) {
+                            throw new AnnotatedError('INVALID_TX_OUTPOINT', `Transaction ${i} spends coinbaseTx in same block`)
                         }
-                        //sum_inputs += input. TODO: add to input sum 
-
-                        return prevtxid
+                        const prevOutput = await input.outpoint.resolve()
+                        return prevOutput.value
                     })
                 )
-                const outputValues = ( //this feels like the wrong way to do this 
-                    obj.outputs.map(async (output, j) => {
-                        sum_outputs += output.value
-                        return output.pubkey
-                    })
-                )
+                
+                for (const inputValue of inputValues) {
+                    sumInputs += inputValue
+                }
+                for (const output of tx.outputs) {
+                    sumOutputs += output.value
+                }
             }
-            //weak law of conservation 
-            if(((sum_inputs - sum_outputs) + 50 * 10 ^12) < genesis_value){ 
-                throw new AnnotatedError('INVALID_BLOCK_COINBASE', 'You are breaking the weak law of conservation')
-
-            }
+        }
+        //Satisfy weak conservation 
+        if(((sumInputs - sumOutputs) + BLOCK_REWARD) < coinbaseValue){ 
+            logger.info(`Sum Inputs:${sumInputs}, Sum outputs:${sumOutputs},
+            ${BLOCK_REWARD}, and coinbase value ${coinbaseValue}`)
+            throw new AnnotatedError('INVALID_BLOCK_COINBASE', 'Coinbase breaks the weak law of conservation')
         }
     }
 

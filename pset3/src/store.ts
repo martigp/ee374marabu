@@ -7,10 +7,11 @@ import { Transaction } from './transaction'
 import { Block } from './block'
 import { logger } from './logger'
 import { hash } from './crypto/hash'
+import { EventEmitter } from 'events'
 
 export const db = new level('./db')
 
-export class ObjectStorage {
+export class ObjectStorage extends EventEmitter {
   static id(obj: any) {
     const objStr = canonicalize(obj)
     const objId = hash(objStr)
