@@ -1,14 +1,16 @@
-import { ObjectId, ObjectStorage } from './store'
+import { ObjectId, ObjectStorage, UTXOStorage } from './store'
 import {
     AnnotatedError,
     BlockObjectType,
     ObjectType,
+    OutpointObjectType,
+    TransactionOutputObjectType,
 } from './message'
 import { PublicKey, Signature, ver } from './crypto/signature'
 import { canonicalize } from 'json-canonicalize'
 import { hash } from './crypto/hash'
 import { network, TIMEOUT_DELAY } from './network'
-import { Transaction } from './transaction'
+import { Output, Transaction } from './transaction'
 import { logger } from './logger'
 
 const T : string = "00000000abc00000000000000000000000000000000000000000000000000000"
@@ -108,17 +110,25 @@ export class Block { //TODO: typing for this?
             throw e
         }
         logger.debug("All Txes received")
+
+        // Do we need to do more checking with previd
+        let utxoSet= new Array<OutpointObjectType>()
+        if (this.previd) {
+            utxoSet = await UTXOStorage.get(this.previd) as Array<OutpointObjectType>
+        }
+
+
         // All Txs are valid / satisfy weak conservation
         // Now just need to sum the transaction fees for each tx
         for (let i = 0; i < this.txids.length; i++) {
             let txid: ObjectId = this.txids[i];
             if (!(await ObjectStorage.exists(txid))) {
-                throw new AnnotatedError('UNFINDABLE_OBJECT', 'One tx not stored in ')
+                throw new AnnotatedError('UNFINDABLE_OBJECT', `Tx ${i} not found`)
             }
             let tx : Transaction = await Transaction.byId(txid);
 
             // CoinbaseTx, only need to check output lenght is 1
-            if (tx.inputs.length === 0) { //TODO: if this is how a coinbase transaction is identified 
+            if (tx.inputs.length === 0) {
                 if(tx.outputs.length !== 1){
                     throw new AnnotatedError('INVALID_FORMAT', 'Outputs length != 0 or there is a no height')
                 }
@@ -133,7 +143,18 @@ export class Block { //TODO: typing for this?
                 // Valid coinbase
                 else {
                     coinbaseId = ObjectStorage.id(tx) //TODO: is this the right object ID 
-                    coinbaseValue = tx.outputs[0].value; //
+                    coinbaseValue = tx.outputs[0].value;
+                    // Add to UTXO set
+                    let newUTXO : OutpointObjectType = {
+                        txid: coinbaseId,
+                        index: 0
+                    }
+                    try {
+                        utxoSet.push(newUTXO)
+                    } catch(e) {
+                        console.log(e)
+                        throw new AnnotatedError("INTERNAL_ERROR", "Issue adding utxo to set");
+                    }
                 }
             }
             // Spending Tx - get sum inputs and outputs
@@ -143,7 +164,16 @@ export class Block { //TODO: typing for this?
                         if (input.outpoint.txid === coinbaseId) {
                             throw new AnnotatedError('INVALID_TX_OUTPOINT', `Transaction ${i} spends coinbaseTx in same block`)
                         }
+                        // Double check this is the correct ordering
                         const prevOutput = await input.outpoint.resolve()
+                        // Check if present for deletion
+                        
+                        // Checks if in array
+                        let utxoSetIdx = utxoSet.findIndex(utxo => utxo.txid == input.outpoint.txid && utxo.index == input.outpoint.index);
+                        if (utxoSetIdx === -1) {
+                            throw new AnnotatedError('INVALID_TX_OUTPOINT', `Transaction ${i} spends Outpoint not in UTXO set`)
+                        }
+                        utxoSet.splice(utxoSetIdx, 1)
                         return prevOutput.value
                     })
                 )
@@ -151,17 +181,31 @@ export class Block { //TODO: typing for this?
                 for (const inputValue of inputValues) {
                     sumInputs += inputValue
                 }
-                for (const output of tx.outputs) {
-                    sumOutputs += output.value
+                for (let idx = 0; idx < tx.outputs.length; i++) {
+                    sumOutputs += tx.outputs[idx].value
+                    // Adding to UTXO set
+                    let newUTXO : OutpointObjectType = {
+                        txid: txid,
+                        index: idx
+                    }
+                    try {
+                        utxoSet.push(newUTXO)
+                    } catch(e) {
+                        throw new AnnotatedError("INTERNAL_ERROR", "Issue adding utxo to set");
+                    }
                 }
             }
         }
+
         //Satisfy weak conservation 
         if(((sumInputs - sumOutputs) + BLOCK_REWARD) < coinbaseValue){ 
             logger.info(`Sum Inputs:${sumInputs}, Sum outputs:${sumOutputs},
             ${BLOCK_REWARD}, and coinbase value ${coinbaseValue}`)
             throw new AnnotatedError('INVALID_BLOCK_COINBASE', 'Coinbase breaks the weak law of conservation')
         }
+
+        // All satisfied -> commit to storage
+        await UTXOStorage.put(this.blockid, utxoSet)
     }
 
     toNetworkObject(): BlockObjectType {

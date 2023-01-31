@@ -119,7 +119,7 @@ export class Transaction {
     const unsignedTxStr = canonicalize(this.toNetworkObject(false))
 
     if (this.inputs.length == 0) {
-      // assume all coinbases are valid for now
+      // TODO : do coinbase Tx validation here
       return
     }
 
@@ -149,6 +149,7 @@ export class Transaction {
     if (sumInputs < sumOutputs) {
       throw new AnnotatedError('INVALID_TX_CONSERVATION', `Transaction ${this.txid} does not respect the Law of Conservation. Inputs summed to ${sumInputs}, while outputs summed to ${sumOutputs}.`)
     }
+
   }
   inputsUnsigned() {
     return this.inputs.map(

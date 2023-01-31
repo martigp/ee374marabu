@@ -2,16 +2,32 @@ export type ObjectId = string
 
 import level from 'level-ts'
 import { canonicalize } from 'json-canonicalize'
-import { AnnotatedError, TransactionObject, ObjectType, BlockObject } from './message'
+import { AnnotatedError, TransactionObject, ObjectType, BlockObject, OutpointObjectType, BlockObjectType } from './message'
 import { Transaction } from './transaction'
 import { Block } from './block'
 import { logger } from './logger'
 import { hash } from './crypto/hash'
 import { EventEmitter } from 'events'
 
+const GENESIS : ObjectType =  {
+  T: "00000000abc00000000000000000000000000000000000000000000000000000",
+  created: 1671062400,
+  miner: "Marabu",
+  nonce: "000000000000000000000000000000000000000000000000000000021bea03ed",
+  note: "The New York Times 2022-12-13: Scientists Achieve Nuclear Fusion Breakthrough With Blast of 192 Lasers",
+  previd: null,
+  txids: [],
+  type: "block"
+}
+
 export const db = new level('./db')
 
-export class ObjectStorage extends EventEmitter {
+export class ObjectStorage {
+  static async addGenesis() {
+    if(! await this.exists(this.id(GENESIS))) {
+      await this.put(GENESIS)
+    }
+  }
   static id(obj: any) {
     const objStr = canonicalize(obj)
     const objId = hash(objStr)
@@ -55,4 +71,34 @@ export class ObjectStorage extends EventEmitter {
     }
   }
 
+}
+
+export class UTXOStorage {
+  static async addGenesis() {
+    let genesisId = ObjectStorage.id(GENESIS)
+    if(! await this.exists(genesisId)) {
+      await this.put(genesisId, new Array<OutpointObjectType>())
+    }
+  }
+  static async exists(blockid: ObjectId) {
+    return await db.exists(`utxoset:${blockid}`)
+  }
+  static async get(blockid: ObjectId) {
+    try {
+      return await db.get(`utxoset:${blockid}`)
+    } catch {
+      throw new AnnotatedError('UNKNOWN_OBJECT', `Block ${blockid} not known locally`)
+    }
+  }
+  static async del(blockid: ObjectId) {
+    try {
+      return await db.del(`utxos:${blockid}`)
+    } catch {
+      throw new AnnotatedError('UNKNOWN_OBJECT', `Block ${blockid} not known locally`)
+    }
+  }
+  static async put(blockid: ObjectId, utxoSet: Array<OutpointObjectType>) {
+    logger.debug(`Storing block UTXO set with id ${blockid}: %o`, utxoSet)
+    return await db.put(`utxoset:${blockid}`, utxoSet)
+  }
 }
