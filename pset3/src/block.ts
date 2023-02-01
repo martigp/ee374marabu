@@ -16,7 +16,7 @@ import { logger } from './logger'
 const T : string = "00000000abc00000000000000000000000000000000000000000000000000000"
 const BLOCK_REWARD : number = 50 * (10 ** 12)
 
-export class Block { //TODO: typing for this? 
+export class Block {
     blockid: ObjectId
     T: string
     created: number
@@ -63,7 +63,7 @@ export class Block { //TODO: typing for this?
         return new Promise<void>((resolve, reject) => {
             // Kinda slow is there a quicker way?
             const timeout = setTimeout(()=> {
-                reject(new AnnotatedError("UNFINDABLE_OBJECT", `Valid tx with txid ${txid} unfindable)`))
+                reject(new AnnotatedError("UNFINDABLE_OBJECT", `Couldn't find ${txid} on network`))
             }, TIMEOUT_DELAY)
 
 
@@ -80,6 +80,7 @@ export class Block { //TODO: typing for this?
     }
 
     async validate() {
+        let seenCoinbase = false
         let coinbaseId = ''
         let coinbaseValue = 0
         let sumInputs = 0 
@@ -112,8 +113,11 @@ export class Block { //TODO: typing for this?
         logger.debug("All Txes received")
 
         // Do we need to do more checking with previd
-        let utxoSet= new Array<OutpointObjectType>()
+        let utxoSet = new Array<OutpointObjectType>()
         if (this.previd) {
+            if(!await UTXOStorage.exists(this.previd)) {
+                throw new AnnotatedError("INTERNAL_ERROR", `Can't find previd ${this.previd} in UTXO set`)
+            }
             utxoSet = await UTXOStorage.get(this.previd) as Array<OutpointObjectType>
         }
 
@@ -122,18 +126,19 @@ export class Block { //TODO: typing for this?
         // Now just need to sum the transaction fees for each tx
         for (let i = 0; i < this.txids.length; i++) {
             let txid: ObjectId = this.txids[i];
+            console.log(`Gordon with TXID ${txid}`)
             if (!(await ObjectStorage.exists(txid))) {
-                throw new AnnotatedError('UNFINDABLE_OBJECT', `Tx ${i} not found`)
+                throw new AnnotatedError('UNFINDABLE_OBJECT', `${i}th Tx not found`)
             }
             let tx : Transaction = await Transaction.byId(txid);
 
             // CoinbaseTx, only need to check output lenght is 1
             if (tx.inputs.length === 0) {
                 if(tx.outputs.length !== 1){
-                    throw new AnnotatedError('INVALID_FORMAT', 'Outputs length != 0 or there is a no height')
+                    throw new AnnotatedError('INVALID_FORMAT', 'Outputs length != 0, invalid coinbase')
                 }
                 // More than one coinbase
-                if (coinbaseId) {
+                if (seenCoinbase) {
                     throw new AnnotatedError('INVALID_BLOCK_COINBASE', 'There can only be one coinbase transaction per block. There is more')
                 }
                 //Not the first in the index
@@ -141,37 +146,38 @@ export class Block { //TODO: typing for this?
                     throw new AnnotatedError('INVALID_BLOCK_COINBASE', 'Coinbase transaction is not at index 0')
                 }
                 // Valid coinbase
-                else {
-                    coinbaseId = ObjectStorage.id(tx) //TODO: is this the right object ID 
-                    coinbaseValue = tx.outputs[0].value;
-                    // Add to UTXO set
-                    let newUTXO : OutpointObjectType = {
-                        txid: coinbaseId,
-                        index: 0
-                    }
-                    try {
-                        utxoSet.push(newUTXO)
-                    } catch(e) {
-                        console.log(e)
-                        throw new AnnotatedError("INTERNAL_ERROR", "Issue adding utxo to set");
-                    }
+                seenCoinbase = true
+                coinbaseId = ObjectStorage.id(tx)
+                coinbaseValue = tx.outputs[0].value;
+                // Add to UTXO set
+                let newUTXO : OutpointObjectType = {
+                    txid: txid,
+                    index: 0
+                }
+                console.log(`Gordon COINBASE output from ${canonicalize(newUTXO)}`)
+                try {
+                    utxoSet.push(newUTXO)
+                } catch(e) {
+                    console.log(e)
+                    throw new AnnotatedError("INTERNAL_ERROR", "Issue adding utxo to set");
                 }
             }
             // Spending Tx - get sum inputs and outputs
             else {
                 const inputValues = await Promise.all(
-                    tx.inputs.map(async (input, i) => {
+                    tx.inputs.map(async (input, j) => {
                         if (input.outpoint.txid === coinbaseId) {
-                            throw new AnnotatedError('INVALID_TX_OUTPOINT', `Transaction ${i} spends coinbaseTx in same block`)
+                            throw new AnnotatedError('INVALID_TX_OUTPOINT', `Input ${j} spends coinbaseTx in same block`)
                         }
                         // Double check this is the correct ordering
                         const prevOutput = await input.outpoint.resolve()
                         // Check if present for deletion
                         
                         // Checks if in array
+                        console.log(utxoSet)
                         let utxoSetIdx = utxoSet.findIndex(utxo => utxo.txid == input.outpoint.txid && utxo.index == input.outpoint.index);
                         if (utxoSetIdx === -1) {
-                            throw new AnnotatedError('INVALID_TX_OUTPOINT', `Transaction ${i} spends Outpoint not in UTXO set`)
+                            throw new AnnotatedError('INVALID_TX_OUTPOINT', `Input ${j} spends Outpoint not in UTXO set`)
                         }
                         utxoSet.splice(utxoSetIdx, 1)
                         return prevOutput.value
@@ -181,13 +187,14 @@ export class Block { //TODO: typing for this?
                 for (const inputValue of inputValues) {
                     sumInputs += inputValue
                 }
-                for (let idx = 0; idx < tx.outputs.length; i++) {
-                    sumOutputs += tx.outputs[idx].value
+                for (let output_idx = 0; output_idx < tx.outputs.length; output_idx++) {
+                    sumOutputs += tx.outputs[output_idx].value
                     // Adding to UTXO set
                     let newUTXO : OutpointObjectType = {
                         txid: txid,
-                        index: idx
+                        index: output_idx
                     }
+                    console.log(`Gordon REGULAR output from ${canonicalize(newUTXO)}`)
                     try {
                         utxoSet.push(newUTXO)
                     } catch(e) {

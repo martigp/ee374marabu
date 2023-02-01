@@ -87,14 +87,14 @@ export class UTXOStorage {
     try {
       return await db.get(`utxoset:${blockid}`)
     } catch {
-      throw new AnnotatedError('UNKNOWN_OBJECT', `Block ${blockid} not known locally`)
+      throw new AnnotatedError('UNKNOWN_OBJECT', `Block ${blockid} UTXO set not known locally`)
     }
   }
   static async del(blockid: ObjectId) {
     try {
       return await db.del(`utxos:${blockid}`)
     } catch {
-      throw new AnnotatedError('UNKNOWN_OBJECT', `Block ${blockid} not known locally`)
+      throw new AnnotatedError('UNKNOWN_OBJECT', `Block ${blockid} UTXO set not known locally`)
     }
   }
   static async put(blockid: ObjectId, utxoSet: Array<OutpointObjectType>) {
