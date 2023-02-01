@@ -1,11 +1,13 @@
 import { ObjectId, ObjectStorage, UTXOStorage } from './store'
 import {
     AnnotatedError,
+    BlockObject,
     BlockObjectType,
     CoinbaseTransactionObject,
     ObjectType,
     OutpointObjectType,
     SpendingTransactionObject,
+    TransactionObject,
     TransactionOutputObjectType,
 } from './message'
 import { PublicKey, Signature, ver } from './crypto/signature'
@@ -47,7 +49,11 @@ export class Block {
         return new Block(ObjectStorage.id(blockObj), T, created, miner, nonce, note, previd, txids, studentids)
     }
     static async byId(blockid: ObjectId): Promise<Block> {
-        return this.fromNetworkObject(await ObjectStorage.get(blockid))
+        let obj = await ObjectStorage.get(blockid)
+        if (!BlockObject.guard(obj)) {
+          throw new AnnotatedError("UNFINDABLE_OBJECT", `object ${blockid} is a tx not a block`)
+        }
+        return this.fromNetworkObject(obj)
     }
 
     constructor(blockid: ObjectId, T: string, created: number, miner: string | null = null, nonce: string, note: string | null = null, previd: string | null, txids: ObjectId[], studentids: string[] | null = null) {
@@ -136,7 +142,7 @@ export class Block {
 
             //Checking object retrieved from storage is Tx not Block
             let obj = await ObjectStorage.get(txid);
-            if(!Union(SpendingTransactionObject, CoinbaseTransactionObject).guard(obj)) {
+            if(!TransactionObject.guard(obj)) {
                 throw new AnnotatedError("UNFINDABLE_OBJECT", `Object ${txid} in block txids is not a transaction`)
             }
             let tx : Transaction = await Transaction.fromNetworkObject(obj);

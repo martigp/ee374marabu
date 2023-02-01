@@ -4,7 +4,8 @@ import { AnnotatedError,
          TransactionObjectType,
          TransactionOutputObjectType,
          OutpointObjectType,
-         SpendingTransactionObject } from './message'
+         SpendingTransactionObject, 
+         TransactionObject} from './message'
 import { PublicKey, Signature, ver } from './crypto/signature'
 import { canonicalize } from 'json-canonicalize'
 
@@ -40,6 +41,9 @@ export class Outpoint {
   }
   async resolve(): Promise<Output> {
     const refTxMsg = await ObjectStorage.get(this.txid)
+    if (!TransactionObject.guard(refTxMsg)) {
+      throw new AnnotatedError("UNFINDABLE_OBJECT", `Object ${this.txid} is a block not a tx`)
+    }
     const refTx = Transaction.fromNetworkObject(refTxMsg)
 
     if (this.index >= refTx.outputs.length) {
@@ -107,7 +111,11 @@ export class Transaction {
     return new Transaction(ObjectStorage.id(txObj), inputs, outputs, height)
   }
   static async byId(txid: ObjectId): Promise<Transaction> {
-    return this.fromNetworkObject(await ObjectStorage.get(txid))
+    let obj = await ObjectStorage.get(txid)
+    if (!TransactionObject.guard(obj)) {
+      throw new AnnotatedError("UNFINDABLE_OBJECT", `Object ${txid} is a block not a tx`)
+    }
+    return this.fromNetworkObject(obj)
   }
   constructor(txid: ObjectId, inputs: Input[], outputs: Output[], height: number | null = null) {
     this.txid = txid
