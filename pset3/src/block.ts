@@ -2,8 +2,10 @@ import { ObjectId, ObjectStorage, UTXOStorage } from './store'
 import {
     AnnotatedError,
     BlockObjectType,
+    CoinbaseTransactionObject,
     ObjectType,
     OutpointObjectType,
+    SpendingTransactionObject,
     TransactionOutputObjectType,
 } from './message'
 import { PublicKey, Signature, ver } from './crypto/signature'
@@ -12,6 +14,7 @@ import { hash } from './crypto/hash'
 import { network, TIMEOUT_DELAY } from './network'
 import { Output, Transaction } from './transaction'
 import { logger } from './logger'
+import { Union } from 'runtypes'
 
 const T : string = "00000000abc00000000000000000000000000000000000000000000000000000"
 const BLOCK_REWARD : number = 50 * (10 ** 12)
@@ -130,7 +133,12 @@ export class Block {
             if (!(await ObjectStorage.exists(txid))) {
                 throw new AnnotatedError('UNFINDABLE_OBJECT', `${i}th Tx not found`)
             }
-            let tx : Transaction = await Transaction.byId(txid);
+
+            let obj = await ObjectStorage.get(txid);
+            if(!Union(SpendingTransactionObject, CoinbaseTransactionObject).guard(obj)) {
+                throw new AnnotatedError("UNFINDABLE_OBJECT", `Object ${txid} is not a transaction`)
+            }
+            let tx : Transaction = await Transaction.fromNetworkObject(obj);
 
             // CoinbaseTx, only need to check output lenght is 1
             if (tx.inputs.length === 0) {
