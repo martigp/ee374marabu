@@ -134,9 +134,10 @@ export class Block {
                 throw new AnnotatedError('UNFINDABLE_OBJECT', `${i}th Tx not found`)
             }
 
+            //Checking object retrieved from storage is Tx not Block
             let obj = await ObjectStorage.get(txid);
             if(!Union(SpendingTransactionObject, CoinbaseTransactionObject).guard(obj)) {
-                throw new AnnotatedError("UNFINDABLE_OBJECT", `Object ${txid} is not a transaction`)
+                throw new AnnotatedError("UNFINDABLE_OBJECT", `Object ${txid} in block txids is not a transaction`)
             }
             let tx : Transaction = await Transaction.fromNetworkObject(obj);
 

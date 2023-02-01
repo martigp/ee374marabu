@@ -36,7 +36,7 @@ export class ObjectStorage {
   static async exists(objectid: ObjectId) {
     return await db.exists(`object:${objectid}`)
   }
-  static async get(objectid: ObjectId) {
+  static async get(objectid: ObjectId): Promise<ObjectType> {
     try {
       return await db.get(`object:${objectid}`)
     } catch {
@@ -50,7 +50,7 @@ export class ObjectStorage {
       throw new AnnotatedError('UNKNOWN_OBJECT', `Object ${objectid} not known locally`)
     }
   }
-  static async put(object: any) {
+  static async put(object: ObjectType) {
     logger.debug(`Storing object with id ${this.id(object)}: %o`, object)
     return await db.put(`object:${this.id(object)}`, object)
   }
@@ -83,7 +83,7 @@ export class UTXOStorage {
   static async exists(blockid: ObjectId) {
     return await db.exists(`utxoset:${blockid}`)
   }
-  static async get(blockid: ObjectId) {
+  static async get(blockid: ObjectId) : Promise<Array<OutpointObjectType>> {
     try {
       return await db.get(`utxoset:${blockid}`)
     } catch {
