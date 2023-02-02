@@ -68,22 +68,25 @@ export class Block {
         this.studentids = studentids
     }
 
-    private async findTransaction(txid: ObjectId) {
+    private async findTransaction(objectid: ObjectId) {
         return new Promise<void>((resolve, reject) => {
             // Kinda slow is there a quicker way?
             const timeout = setTimeout(()=> {
-                reject(new AnnotatedError("UNFINDABLE_OBJECT", `Couldn't find ${txid} on network`))
+                reject(new AnnotatedError("UNFINDABLE_OBJECT", `Couldn't find ${objectid} on network`))
             }, TIMEOUT_DELAY)
 
 
-            network.once(txid, () => {
+            network.once(objectid, (object) => {
+                if (!TransactionObject.guard(object)) {
+                    reject(new AnnotatedError("UNFINDABLE_OBJECT", `Object ${objectid} is a block not a tx`));
+                }
                 clearTimeout(timeout)
                 resolve()
             })
 
             network.broadcast({
                 type: 'getobject',
-                objectid: txid
+                objectid: objectid
             });
         })
     }

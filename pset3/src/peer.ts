@@ -182,7 +182,7 @@ export class Peer {
     }
 
     await ObjectStorage.put(msg.object)
-    network.emit(objectid, "Valid object found")
+    network.emit(objectid, msg.object, "Valid object found and added to db")
     // gossip
     network.broadcast({
       type: 'ihaveobject',
