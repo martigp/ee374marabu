@@ -7,7 +7,7 @@ import { Transaction } from './transaction'
 import { Block } from './block'
 import { logger } from './logger'
 import { hash } from './crypto/hash'
-import { EventEmitter } from 'events'
+import { network } from './network'
 
 const GENESIS : ObjectType =  {
   T: "00000000abc00000000000000000000000000000000000000000000000000000",
@@ -18,6 +18,12 @@ const GENESIS : ObjectType =  {
   previd: null,
   txids: [],
   type: "block"
+}
+
+export enum ObjectStatus {
+  TxFormat,
+  BlockFormat,
+  AddedToDb
 }
 
 export const db = new level('./db')
@@ -59,6 +65,7 @@ export class ObjectStorage {
       if (!TransactionObject.guard(object)) {
         throw new AnnotatedError('INVALID_FORMAT', 'Failed to parse transaction object')
       }
+      network.emit(this.id(object), ObjectStatus.TxFormat)
       const tx = Transaction.fromNetworkObject(object)
       await tx.validate()
     }
@@ -66,6 +73,7 @@ export class ObjectStorage {
       if (!BlockObject.guard(object)) {
         throw new AnnotatedError('INVALID_FORMAT', 'Failed to parse block object')
       }
+      network.emit(this.id(object), ObjectStatus.BlockFormat)
       const block = Block.fromNetworkObject(object)
       await block.validate()
     }

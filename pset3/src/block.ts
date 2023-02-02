@@ -1,4 +1,4 @@
-import { ObjectId, ObjectStorage, UTXOStorage } from './store'
+import { ObjectId, ObjectStatus, ObjectStorage, UTXOStorage } from './store'
 import {
     AnnotatedError,
     BlockObject,
@@ -76,12 +76,14 @@ export class Block {
             }, TIMEOUT_DELAY)
 
 
-            network.once(objectid, (object) => {
-                if (!TransactionObject.guard(object)) {
+            network.on(objectid, (status) => {
+                if (status == ObjectStatus.BlockFormat) {
                     reject(new AnnotatedError("UNFINDABLE_OBJECT", `Object ${objectid} is a block not a tx`));
                 }
-                clearTimeout(timeout)
-                resolve()
+                if (status == ObjectStatus.AddedToDb) {
+                    clearTimeout(timeout)
+                    resolve()
+                }
             })
 
             network.broadcast({

@@ -10,7 +10,7 @@ import { AnnotatedError,
          ErrorMessageType } from './message'
 import { peerManager } from './peermanager'
 import { canonicalize } from 'json-canonicalize'
-import { db, ObjectStorage } from './store'
+import { db, ObjectStatus, ObjectStorage } from './store'
 import { network } from './network'
 import { ObjectId } from './store'
 
@@ -182,7 +182,7 @@ export class Peer {
     }
 
     await ObjectStorage.put(msg.object)
-    network.emit(objectid, msg.object, "Valid object found and added to db")
+    network.emit(objectid, ObjectStatus.AddedToDb)
     // gossip
     network.broadcast({
       type: 'ihaveobject',
