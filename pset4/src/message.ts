@@ -136,17 +136,30 @@ export const ObjectMessage = Record({
 })
 export type ObjectMessageType = Static<typeof ObjectMessage>
 
+export const GetChainTipMessage = Record({
+  type: Literal('getchaintip'),
+})
+export type GetChainTipMessageType = Static<typeof GetChainTipMessage>
+
+export const ChainTipMessage = Record({
+  type: Literal('chaintip'),
+  blockid: Hash,
+})
+export type ChainTipMessageType = Static<typeof ChainTipMessage>
+
 
 export const Messages = [
   HelloMessage,
   GetPeersMessage, PeersMessage,
   IHaveObjectMessage, GetObjectMessage, ObjectMessage,
+  GetChainTipMessage, ChainTipMessage,
   ErrorMessage
 ]
 export const Message = Union(
   HelloMessage,
   GetPeersMessage, PeersMessage,
   IHaveObjectMessage, GetObjectMessage, ObjectMessage,
+  GetChainTipMessage, ChainTipMessage,
   ErrorMessage
 )
 export type MessageType = Static<typeof Message>
