@@ -80,6 +80,8 @@ class ObjectManager {
     }
     this.deferredObjects[objectid].push(deferred)
 
+    /* Unclear why add to deferred objects before checking if present
+       in our db */
     try {
       object = await this.get(objectid)
       logger.debug(`Object ${objectid} was already in database`)
