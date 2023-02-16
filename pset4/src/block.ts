@@ -8,6 +8,7 @@ import util from 'util'
 import { UTXOSet } from './utxo'
 import { logger } from './logger'
 import { Transaction } from './transaction'
+import { chainManager } from './chain'
 
 const TARGET = '00000000abc00000000000000000000000000000000000000000000000000000'
 const GENESIS: BlockObjectType = {
@@ -34,6 +35,7 @@ export class Block {
   studentids: string[] | undefined
   blockid: string
   fees: number | undefined
+  height: number | undefined
   
   public static async fromNetworkObject(object: BlockObjectType): Promise<Block> {
     return new Block(
@@ -67,6 +69,7 @@ export class Block {
     this.studentids = studentids
     this.blockid = hash(canonicalize(this.toNetworkObject()))
   }
+  /* Function that loads stored state for current block */
   async loadStateAfter(): Promise<UTXOSet | undefined> {
     try {
       return new UTXOSet(new Set<string>(await db.get(`blockutxo:${this.blockid}`)))
@@ -75,6 +78,17 @@ export class Block {
       return
     }
   }
+  /* Function that stores the state for the current block */
+  async storeStateAfter(stateAfter : UTXOSet) {
+    try {
+      await db.put(`blockutxo:${this.blockid}`, Array.from(stateAfter.outpoints))
+    }
+    catch(e) {
+      logger.warn(`Unable to store stateAfter of block ${this.blockid}`)
+      throw new AnnotatedError('INTERNAL_ERROR', `Unable to store stateAfter of block ${this.blockid}`)
+    }
+  }
+
   async getCoinbase(): Promise<Transaction> {
     if (this.txids.length === 0)  {
       throw new Error('The block has no coinbase transaction')
@@ -114,6 +128,8 @@ export class Block {
     return netObj
   }
   hasPoW(): boolean {
+    /*'900e7578d9850d1303f3edabb8825ec9ec3f0ed0cddefa581d4c0b1c8700e0b5'
+      as target for the prev block POW test */
     return BigInt(`0x${this.blockid}`) <= BigInt(`0x${TARGET}`)
   }
   isGenesis(): boolean {
@@ -179,14 +195,19 @@ export class Block {
     }
     catch (e) {}
 
+    /* Checks if coinbase is valid for both height and value */
     if (coinbase !== undefined) {
       if (coinbase.outputs[0].value > BLOCK_REWARD + fees) {
         throw new AnnotatedError('INVALID_BLOCK_COINBASE',`Coinbase transaction does not respect macroeconomic policy. `
                       + `Coinbase output was ${coinbase.outputs[0].value}, while reward is ${BLOCK_REWARD} and fees were ${fees}.`)
       }
-    }
+      if (coinbase.height !== this.height) {
+        throw new AnnotatedError('INVALID_BLOCK_COINBASE', `Coinbase ${coinbase.txid} height ${coinbase.height} did not
+                                                            match block ${this.blockid} height ${this.height}`)
+      }
 
-    await db.put(`blockutxo:${this.blockid}`, Array.from(stateAfter.outpoints))
+    }
+    await this.storeStateAfter(stateAfter)
     logger.debug(`UTXO state of block ${this.blockid} cached: ${JSON.stringify(Array.from(stateAfter.outpoints))}`)
   }
   async validateAncestry(peer: Peer): Promise<Block | null> {
@@ -232,7 +253,9 @@ export class Block {
           throw new AnnotatedError('INVALID_FORMAT', `Invalid genesis block ${this.blockid}: ${JSON.stringify(this.toNetworkObject())}`)
         }
         logger.debug(`Block ${this.blockid} is genesis block`)
-        // genesis state
+        /* Height not used but for completeness */
+        this.height = 0
+        /* Storing the UTXOSet */
         stateBefore = new UTXOSet(new Set<string>())
         logger.debug(`State before block ${this.blockid} is the genesis state`)
       }
@@ -243,9 +266,27 @@ export class Block {
           throw new AnnotatedError('UNFINDABLE_OBJECT', `Parent block of block ${this.blockid} was null`)
         }
 
-        // this block's starting state is the previous block's ending state
+        /* Set height for use later by coinbase validation */
+        if (parentBlock.height === undefined) {
+          /* TODO: is this the correct error to throw? */
+          throw new AnnotatedError('UNFINDABLE_OBJECT', `Unable to find Block ${this.blockid}'s Parent ${parentBlock.blockid}'s height`)
+        }
+        this.height = parentBlock.height + 1
+
+        /* this block's starting state is the previous block's ending state */
         stateBefore = await parentBlock.loadStateAfter()
         logger.debug(`Loaded state before block ${this.blockid}`)
+
+        /* Finally check the timestamp and if it is valid */
+        if (parentBlock.created >= this.created) {
+          throw new AnnotatedError('INVALID_BLOCK_TIMESTAMP', `Block ${this.blockid} timestamp ${this.created} less than
+                                    parent ${parentBlock.blockid}'s timestamp ${parentBlock.created}`)
+        }
+        const curTime = Math.ceil(new Date().getTime() / 1000)
+        if (this.created >= curTime) {
+          throw new AnnotatedError('INVALID_BLOCK_TIMESTAMP', `Block ${this.blockid} timestamp ${this.created} is greater
+                                    than current time ${curTime}`)
+        }
       }
       logger.debug(`Block ${this.blockid} has valid ancestry`)
 
@@ -258,6 +299,10 @@ export class Block {
 
       await this.validateTx(peer, stateBefore)
       logger.debug(`Block ${this.blockid} has valid transactions`)
+
+      /* Make this the chaintip if its height is larger than existing one */
+      chainManager.update(this.height, this.blockid)
+
     }
     catch (e: any) {
       throw e
