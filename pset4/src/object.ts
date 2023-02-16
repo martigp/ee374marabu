@@ -15,6 +15,8 @@ export const db = new level('./db')
 const OBJECT_AVAILABILITY_TIMEOUT = 5000 // ms
 
 class ObjectManager {
+  /* An array of deferred objects means we don't do extra work if
+     several threads/sockets want an object we dont' possess */
   deferredObjects: { [key: string]: Deferred<ObjectType>[] } = {}
 
   id(obj: any) {
@@ -39,7 +41,10 @@ class ObjectManager {
   }
   async put(object: any) {
     const objectid = this.id(object)
-
+    /* We put an object in our DB the second we receive it, this is
+       to ensure that when we have attempted to retrieve and object from
+       network. This means we can resolve the promise without having to
+       do the expensive validation */
     logger.debug(`Storing object with id ${objectid}: %o`, object)
     if (objectid in this.deferredObjects) {
       for (const deferred of this.deferredObjects[objectid]) {
@@ -85,6 +90,7 @@ class ObjectManager {
     logger.debug(`Object ${objectid} not in database. Requesting it from peer ${peer.peerAddr}.`)
     await peer.sendGetObject(objectid)
 
+    /* Provides race between object retrieval and timeout provided by delays */
     object = await Promise.race([
       resolveToReject(
         delay(OBJECT_AVAILABILITY_TIMEOUT),
