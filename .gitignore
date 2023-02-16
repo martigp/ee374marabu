@@ -3,4 +3,4 @@ db/
 
 package-lock.json
 secrets.txt
-
+.DS_Store
