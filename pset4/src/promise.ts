@@ -1,3 +1,4 @@
+/* Custom promise */
 export class Deferred<T> {
   promise: Promise<T>
   resolve: (value: T) => void = () => {}
@@ -11,6 +12,7 @@ export class Deferred<T> {
   }
 }
 
+/* Custom delay that works with our Defered promise */
 export function delay(ms: number) {
   const deferred = new Deferred<void>()
 
@@ -18,6 +20,10 @@ export function delay(ms: number) {
   return deferred.promise
 }
 
+/* Function that means the PROMISE always fails with REASON even if
+   promise is successful. This is used specifically with the delay
+   function i.e. if the delay times out it throws an error 
+   and races against a retrieve for an object. */
 export function resolveToReject(promise: Promise<any>, reason: string): Promise<never> {
   const deferred = new Deferred<never>()
 
