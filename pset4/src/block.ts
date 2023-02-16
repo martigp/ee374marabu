@@ -11,7 +11,7 @@ import { Transaction } from './transaction'
 import { chainManager } from './chain'
 
 const TARGET = '00000000abc00000000000000000000000000000000000000000000000000000'
-const GENESIS: BlockObjectType = {
+export const GENESIS: BlockObjectType = {
   T: TARGET,
   created: 1671062400,
   miner: 'Marabu',
@@ -299,10 +299,8 @@ export class Block {
 
       await this.validateTx(peer, stateBefore)
       logger.debug(`Block ${this.blockid} has valid transactions`)
-
-      /* Make this the chaintip if its height is larger than existing one */
+            /* Make this the chaintip if its height is larger than existing one */
       chainManager.update(this.height, this.blockid)
-
     }
     catch (e: any) {
       throw e
