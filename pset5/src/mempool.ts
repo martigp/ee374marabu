@@ -3,26 +3,38 @@ import { logger } from './logger'
 import { AnnotatedError } from './message'
 import { Outpoint, Transaction } from './transaction'
 import { ObjectId, objectManager } from './object'
+import { db } from './object'
 
-export class Mempool {
+class Mempool {
   transactions: Set<ObjectId> = new Set<ObjectId>()
 
-  constructor(transactions: Set<ObjectId>) {
-    this.transactions = transactions
+  async load() {
+    try {
+      this.transactions = new Set(await db.get('mempool')) //TODO: Initialize the mempool state by applying the transactions in your longest chain
+      logger.debug(`Loaded saved mempool: ${[...this.transactions]}`)
+    }
+    catch {
+      logger.info(`Initializing mempool database`)
+      this.transactions = new Set() //TODO: add transactions from longest chain in response to getChaintip events 
+      await this.store()
+    }
   }
-  copy() {
-    return new Mempool(new Set<ObjectId>(Array.from(this.transactions)))
+  async store() {
+    await db.put('mempool', [...this.transactions])
   }
 
   async apply(tx: Transaction) {
     logger.debug(`Applying transaction ${tx.txid} to mempool`)
-    //TODO: Implement this! 
+    //TODO: validate this! 
     this.transactions.add(tx.txid)
+    this.store() // intentionally delayed await
+    logger.info(`Mempool size: ${this.transactions.size}`)
   }
   async delete(tx: Transaction) {
     logger.debug(`Deleting transaction ${tx.txid} from mempool`)
-    //TODO: Implement this! 
-    this.transactions.add(tx.txid)
+    this.transactions.delete(tx.txid)
+    this.store() // intentionally delayed await
+    logger.info(`Mempool size: ${this.transactions.size}`)
   }
   async applyMultiple(txs: Transaction[], block?: Block) {
     for (const tx of txs) {
@@ -35,3 +47,5 @@ export class Mempool {
     return `mempool : ${JSON.stringify(Array.from(this.transactions))}`
   }
 }
+
+export const mempool = new Mempool()

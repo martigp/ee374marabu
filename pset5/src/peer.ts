@@ -19,6 +19,7 @@ import { ObjectId } from './object'
 import { chainManager } from './chain'
 import { Block } from './block'
 import { Transaction } from './transaction'
+import { mempool } from './mempool'
 
 const VERSION = '0.9.0'
 const NAME = 'Malibu (pset4)'
@@ -227,6 +228,7 @@ export class Peer {
 
       // store object even if it is invalid
       await objectManager.put(msg.object)
+      //send to mempool
     }
 
     let instance: Block | Transaction;
@@ -244,6 +246,10 @@ export class Peer {
         type: 'ihaveobject',
         objectid
       })
+      if(instance instanceof Transaction){
+        //TODO: check that it is valif with respect to mempool state then do the following: 
+        await mempool.apply(instance)
+      }
     }
   }
   async onMessageGetChainTip(msg: GetChainTipMessageType) {
