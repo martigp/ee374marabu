@@ -7,6 +7,7 @@ import { Message,
          PeersMessageType, GetPeersMessageType,
          IHaveObjectMessageType, GetObjectMessageType, ObjectMessageType,
          GetChainTipMessageType, ChainTipMessageType,
+         GetMempoolMessageType, MempoolMessageType,
          ErrorMessageType,
          AnnotatedError
         } from './message'
@@ -78,6 +79,19 @@ export class Peer {
       blockid
     })
   }
+
+  async sendGetMempool() {
+    this.sendMessage({
+      type: 'getmempool'
+    })
+  }
+  async sendMempool(txids: ObjectId[]) {
+    this.sendMessage({
+      type: 'mempool',
+      txids: txids
+    })
+  }
+
   async sendError(err: AnnotatedError) {
     try {
       this.sendMessage(err.getJSON())
@@ -106,6 +120,7 @@ export class Peer {
     await this.sendHello()
     await this.sendGetPeers()
     await this.sendGetChainTip()
+    await this.sendGetMempool()
   }
   async onTimeout() {
     return await this.fatalError(new AnnotatedError('INVALID_FORMAT', 'Timed out before message was complete'))
@@ -148,6 +163,8 @@ export class Peer {
       this.onMessageObject.bind(this),
       this.onMessageGetChainTip.bind(this),
       this.onMessageChainTip.bind(this),
+      this.onMessageGetMempool.bind(this),
+      this.onMessageMempool.bind(this),
       this.onMessageError.bind(this)
     )(msg)
   }
@@ -241,6 +258,23 @@ export class Peer {
       return
     }
     this.sendGetObject(msg.blockid)
+  }
+
+  async onMessageGetMempool(msg: GetMempoolMessageType) {
+    this.sendMempool(/*TODO: actual send it*/ [])
+
+  }
+  async onMessageMempool(msg: MempoolMessageType) {
+    for (const txid of msg.txids){ 
+      const objectid: ObjectId = txid
+      this.info(`Received mempool with object with id ${objectid}`)
+
+        // TODO: should we gossip every single one? Spec seems to say yes but doesn't make sense
+        network.broadcast({
+          type: 'getobject',
+          objectid
+        })
+    }
   }
   async onMessageError(msg: ErrorMessageType) {
     this.warn(`Peer reported error: ${msg.name}`)
