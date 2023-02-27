@@ -299,8 +299,10 @@ export class Block {
 
       await this.validateTx(peer, stateBefore)
       logger.debug(`Block ${this.blockid} has valid transactions`)
-            /* Make this the chaintip if its height is larger than existing one */
+
+      /* Make this the chaintip if its height is larger than existing one */
       chainManager.update(this.height, this.blockid)
+
     }
     catch (e: any) {
       throw e

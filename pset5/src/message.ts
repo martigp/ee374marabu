@@ -85,6 +85,9 @@ export const HumanReadable = String.withConstraint(
   s.length <= 128 &&
   s.match(/^[ -~]+$/) !== null // ASCII-printable
 )
+export const StudentIdArray = Array(HumanReadable).withConstraint(
+  arr => arr.length <= 10
+)
 
 export const BlockObject = Record({
   type: Literal('block'),
@@ -95,7 +98,7 @@ export const BlockObject = Record({
   T: Hash,
   miner: Optional(HumanReadable),
   note: Optional(HumanReadable),
-  studentids: Optional(Array(String))
+  studentids: Optional(StudentIdArray)
 })
 export type BlockObjectType = Static<typeof BlockObject>
 

@@ -271,19 +271,12 @@ export class Block {
       }
       logger.debug(`Block proof-of-work for ${this.blockid} is valid`)
 
-      if(this.miner != undefined && (/^[\x31-\x7F]+$/.test(this.miner) || this.miner.length > 128)){ 
-        throw new AnnotatedError('INVALID_FORMAT', `Block ${this.blockid} has miner field with non-ascii characters or is longer than 128.`)
-      }
       if(this.studentids != undefined){ 
         if(this.studentids.length > 10){ 
           throw new AnnotatedError('INVALID_FORMAT', `Block ${this.blockid} has studentid field with over 10 studentids`)
         }
-        for (const student of this.studentids) {
-          if(/^[\x31-\x7F]+$/.test(student) || student.length > 128){ 
-            throw new AnnotatedError('INVALID_FORMAT', `Block ${this.blockid} has studentid with non-ascii characters or is longer than 128.`)
-          }
-        }
       }
+      
       let parentBlock: Block | null = null
       let stateBefore: UTXOSet | undefined
 
