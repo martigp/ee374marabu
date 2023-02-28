@@ -152,7 +152,6 @@ export class Transaction {
       }
       catch (e) {}
     }
-    const prevOutputs: Output[] = []; 
     const inputValues = await Promise.all(
       this.inputs.map(async (input, i) => {
         if (blockCoinbase !== undefined && input.outpoint.txid === blockCoinbase.txid) {
@@ -167,12 +166,6 @@ export class Transaction {
         if (!await ver(input.sig, unsignedTxStr, prevOutput.pubkey)) {
           throw new AnnotatedError('INVALID_TX_SIGNATURE', `Signature validation failed for input ${i} of transaction ${this.txid}`)
         }
-
-        //TODO: not sure what error message to throw here 
-        if(prevOutputs.includes(prevOutput)){ 
-          throw new AnnotatedError('INVALID_TX_OUTPOINT', `Transaction ${this.txid} has multiple inputs from the same outpoint`)
-        }
-        prevOutputs.push(prevOutput)
         return prevOutput.value
       })
     )
