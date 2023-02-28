@@ -1,9 +1,9 @@
 import { Block } from "./block";
 import { logger } from "./logger";
 import { mempool } from "./mempool";
-import { Transaction } from "./transaction";
+import { Transaction } from "./transaction"
 import {db, objectManager} from "./object"
-import { AnnotatedError } from "./message";
+import { AnnotatedError } from "./message"
 
 export class Forks {
   shorterChain : Block[]
@@ -93,9 +93,10 @@ class ChainManager {
         const shorterParent = await shorterChainTip.loadParent()
         if (shorterParent === undefined)
           throw new AnnotatedError('INTERNAL_ERROR', `Shorter chain block ${shorterChainTip.blockid} had unfindable parent.`)
-          forks = await this.findUncommonSuffix(shorterChainTip, longerParent)
-          forks.shorterChain.push(shorterChainTip)
+        forks = await this.findUncommonSuffix(shorterParent, longerParent)
+        forks.shorterChain.push(shorterChainTip)
       }
+      forks.longerChain.push(longerChainTip)
       return forks
     }
   }
