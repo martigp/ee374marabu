@@ -4,6 +4,7 @@ import { mempool } from "./mempool";
 import { Transaction } from "./transaction";
 import {db} from "./object"
 import { AnnotatedError } from "./message";
+import { objectManager } from "./object";
 
 export class Chain {
   chain : Block[]
@@ -73,6 +74,10 @@ class ChainManager {
       if (shorterChainTip.height === undefined || longerChainTip.height === undefined)
           throw new AnnotatedError('INTERNAL_ERROR', "Blocks don't have heights")
       if (shorterChainTip.height < longerChainTip.height){
+        logger.debug(`Retrieving parent block of ${longerChainTip.blockid} (${longerChainTip.previd})`)
+        const parentObject = await objectManager.get(longerChainTip.previd!)
+        const new_ret = this.findUncommonSuffix(shorterChainTip, parentObject)
+        new_ret[1].push(longerChainTip)
         /* Get prev of longerChainTip,
           validate prev
           return findUncommonSuffix(shorterChainTip, parentLongerChainTip)
