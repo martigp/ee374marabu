@@ -3,6 +3,15 @@ import { logger } from "./logger";
 import { mempool } from "./mempool";
 import { Transaction } from "./transaction";
 import {db} from "./object"
+import { AnnotatedError } from "./message";
+
+export class Chain {
+  chain : Block[]
+  constructor(chain : Block[]) {
+    this.chain = chain
+  }
+}
+
 class ChainManager {
   longestChainHeight: number = 0
   longestChainTip: Block | null = null
@@ -55,13 +64,28 @@ class ChainManager {
       this.longestChainTip = block
       await this.store()
     }
-    else{ 
-      //update mempool by applying new block  
-      mempool.state = block.stateAfter
-      const old_txs = mempool.transactions
-      mempool.transactions = [] 
-      for (const txid in old_txs){ 
-        await mempool.apply(await Transaction.byId(txid))
+  }
+  async findUncommonSuffix(shorterChainTip: Block, longerChainTip: Block): Promise<[Chain, Chain]> {
+    /* Base case */
+    if (shorterChainTip.blockid == longerChainTip.blockid) {
+      return [new Chain([shorterChainTip]), new Chain([shorterChainTip])]
+    } else {
+      if (shorterChainTip.height === undefined || longerChainTip.height === undefined)
+          throw new AnnotatedError('INTERNAL_ERROR', "Blocks don't have heights")
+      if (shorterChainTip.height < longerChainTip.height){
+        /* Get prev of longerChainTip,
+          validate prev
+          return findUncommonSuffix(shorterChainTip, parentLongerChainTip)
+          new_ret[1].push(longerChainTip)
+
+         */
+      } else {
+        /*Get prev of both
+          validate both prev
+           new ret = findUncommonSuffix(parentShorterChainTip, parentLongerChainTip)
+           new_ret[0].push(shorterChainTip)
+           new_ret[1].push(longerChainTip)
+          */
       }
     }
   }
