@@ -5,6 +5,7 @@ import { Outpoint, Transaction } from './transaction'
 import { ObjectId, objectManager } from './object'
 import { db } from './object'
 import { UTXOSet } from './utxo'
+import { Forks } from './chain'
 
 class Mempool {
   transactions: string[] = []
@@ -17,8 +18,7 @@ class Mempool {
     }
     catch {
       logger.info(`Initializing mempool database`)
-      this.transactions = [] //TODO: add transactions from longest chain in response to getChaintip events 
-      await this.store()
+      this.transactions = []
     }
     try {
       const stateArray = await db.get('mempool:state')
@@ -44,6 +44,26 @@ class Mempool {
     this.transactions.push(tx.txid)
     await this.store()
     logger.info(`Mempool size: ${this.transactions.length}`)
+  }
+  /* If a simple new block on top of existing. Blocks*/
+  async update(newTip: Block){
+    if (newTip.stateAfter === undefined)
+      throw new AnnotatedError('INTERNAL_ERROR', `New longest tip ${newTip.blockid}
+                                 has a null state.`)
+    this.transactions = []
+    this.state = newTip.stateAfter
+    for (const txid of this.transactions) {
+      try {
+        let tx = await Transaction.byId(txid)
+        await this.state?.apply(tx)
+      }
+      catch {}
+    }
+    await this.store()
+  }
+
+  async reorg(forks: Forks){
+
   }
 }
 

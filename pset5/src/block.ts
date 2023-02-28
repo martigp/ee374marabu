@@ -367,4 +367,24 @@ export class Block {
     this.stateAfter = new UTXOSet(new Set<string>(stateAfterOutpoints))
     this.valid = true
   }
+
+  /* Copied from the validate Ancestry. Note parent should be present because
+     this is only called in Chain Manager where blocks are already validated. */
+  async loadParent() : Promise<Block | undefined> {
+    let parentBlock: Block
+    if (this.previd == null)
+      return undefined
+    try {
+      const parentObject = await objectManager.get(this.previd)
+
+      if (!BlockObject.guard(parentObject)) {
+        return undefined
+      }
+      parentBlock = await Block.fromNetworkObject(parentObject)
+    }
+    catch (e: any) {
+      return undefined
+    }
+    return parentBlock
+  }
 }
