@@ -145,7 +145,6 @@ export class Block {
     const txPromises: Promise<ObjectType>[] = []
     let maybeTransactions: ObjectType[] = []
     const txs: Transaction[] = []
-
     for (const txid of this.txids) {
       if (peer === undefined) {
         txPromises.push(objectManager.get(txid))

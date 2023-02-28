@@ -58,6 +58,7 @@ class ObjectManager {
         await tx.validate()
 
         if (!tx.isCoinbase()){
+          logger.debug("GORDON: about to apply to mempool, TX NOT VALID YET!")
           await mempool.apply(tx);
         }
         return tx

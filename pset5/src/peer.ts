@@ -268,7 +268,11 @@ export class Peer {
   }
   async onMessageMempool(msg: MempoolMessageType) {
     for (const txid of msg.txids){
-      await objectManager.retrieve(txid, this)
+      try {
+        await objectManager.retrieve(txid, this)
+      } catch(e : any) {
+        this.sendError(e)
+      }
     }
   }
   async onMessageError(msg: ErrorMessageType) {

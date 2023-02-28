@@ -64,37 +64,64 @@ function test_valid() {
                 }
                 grader1.write(`${canonicalize(getmempool)}\n`)
             }
-            // else if(i === 3) {
-            //   let chaintip = {
-            //     type: "object",
-            //     object: BLOCK1
-            //   }
-            //   grader1.write(`${canonicalize(chaintip)}\n`)
-            //   console.log(`Grader 1 sending valid chaintip block ${hash(canonicalize(BLOCK1))}`)
-            // }
-            // else if(i=== 4) {
-            //   let genesis_obj = {
-            //     type: "object",
-            //     object: GENESIS
-            //   }
-            //   grader1.write(`${canonicalize(genesis_obj)}\n`)
-            //   console.log(`Grader 1 sending valid genesis block ${hash(canonicalize(GENESIS))}`)
-            // } else if(i === 5) {
-            //   let block_tx = {
-            //     type: "object",
-            //     object: COINBASE
-            //   }
-            //   grader1.write(`${canonicalize(block_tx)}\n`)
-            //   console.log(`Grader 1 sending valid coinbase in block 1 ${hash(canonicalize(COINBASE))}`)
-            // } else if (i === 7) {
-            //   let getchaintip = {
-            //     type: "getchaintip"
-            //   }
-            //   grader1.write(`${canonicalize(getchaintip)}\n`)
-            // }
           i++
         }
       })
     })
   }
-test_valid()
+
+const AUTO1_BLOCK1 = {"object":{"T":"00000000abc00000000000000000000000000000000000000000000000000000","created":1671104848,"miner":"grader","nonce":"5f7091a5abb0874df3e8cb4543a5eb93b0441e9ca4c2b0fb3d30875cf67bf4d7","note":"First block","previd":"0000000052a0e645eca917ae1c196e0d0a4fb756747f29ef52594d68484bb5e2","txids":["4a25589d0362cf788a4906b7c0c9522559d3f452e43b3affb437d048741a8aab"],"type":"block"},"type":"object"}
+const AUTO1_BLOCK1_CB =  {"object":{"height":1,"outputs":[{"pubkey":"200148a9e8aea455589d98ce831b2ccfdfb28a223c7e46dbae6c14013467918c","value":400}],"type":"transaction"},"type":"object"}
+const REPEAT_INPUT = {"object":{"inputs":[{"outpoint":{"index":0,"txid":"4a25589d0362cf788a4906b7c0c9522559d3f452e43b3affb437d048741a8aab"},"sig":"9a360d283b0b3624d77d0312d5008935dc024b6754c27703d90b5028e9d3fc8c760ecf16494113366d238f5c2e870b1287f35117ba88c2f45d57c5af37e8310b"},{"outpoint":{"index":0,"txid":"4a25589d0362cf788a4906b7c0c9522559d3f452e43b3affb437d048741a8aab"},"sig":"9a360d283b0b3624d77d0312d5008935dc024b6754c27703d90b5028e9d3fc8c760ecf16494113366d238f5c2e870b1287f35117ba88c2f45d57c5af37e8310b"}],"outputs":[{"pubkey":"200148a9e8aea455589d98ce831b2ccfdfb28a223c7e46dbae6c14013467918c","value":10}],"type":"transaction"},"type":"object"}
+
+function autograder_1(){
+  const grader1 = new net.Socket();
+    const grader2 = new net.Socket();
+    grader2.connect(SERVER_PORT, SERVER_HOST, () => {
+      console.log(`Grader2 successfully connected to IP address 
+                ${grader2.remoteAddress} on port ${grader2.remotePort}`);
+      let hello1: String = canonicalize({"agent":"grader 2","type":"hello","version":"0.9.0"});
+      console.log(`Sending message: ${hello1}`);
+      grader2.write((`${hello1}\n`));
+      grader2.on('data', (data) => {
+        console.log(`Grader 2 received ${data}`)
+      })
+    })
+  
+    grader1.connect(SERVER_PORT, SERVER_HOST, () => {
+      console.log(`Grader1 successfully connected to IP address 
+                ${grader1.remoteAddress} on port ${grader1.remotePort}`);
+      let hello1: String = canonicalize({"agent":"grader 1","type":"hello","version":"0.9.0"});
+      console.log(`Sending message: ${hello1}`);
+      grader1.write((`${hello1}\n`));
+      let i = 0
+      grader1.on('data', (data) => {
+          let buffer : string = "";
+          buffer += data;
+          const messages = buffer.split('\n');
+          for(const message of messages.slice(0,messages.length - 1)) {
+            console.log(`Grader 1 received message ${i}th ${message}`)
+            if (i === 3) {
+
+              grader1.write(`${canonicalize(AUTO1_BLOCK1)}\n`)
+              console.log(`Grader 1 sending block1`)
+            }
+            if (i === 4){
+                grader1.write(`${canonicalize(AUTO1_BLOCK1_CB)}\n`)
+                console.log(`Grader 1 sending a block1 cb`)
+            }
+            if (i===5){
+              grader1.write(`${canonicalize(REPEAT_INPUT)}\n`)
+              console.log(`Grader 1 sending block1`)
+            }
+            if (i==6){
+              grader1.write(`${canonicalize({"type":"getmempool"})}\n`)
+              console.log(`Grader 1 sending block1`)
+            }
+          i++
+        }
+      })
+    })
+
+}
+autograder_1()
