@@ -272,14 +272,7 @@ export class Peer {
   }
   async onMessageMempool(msg: MempoolMessageType) {
     for (const txid of msg.txids){ 
-      const objectid: ObjectId = txid
-      this.info(`Received mempool with object with id ${objectid}`)
-
-        // TODO: should we gossip every single one? Spec seems to say yes but doesn't make sense
-        network.broadcast({
-          type: 'getobject',
-          objectid
-        })
+      await objectManager.retrieve(txid, this)
     }
   }
   async onMessageError(msg: ErrorMessageType) {

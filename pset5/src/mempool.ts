@@ -4,47 +4,46 @@ import { AnnotatedError } from './message'
 import { Outpoint, Transaction } from './transaction'
 import { ObjectId, objectManager } from './object'
 import { db } from './object'
+import { UTXOSet } from './utxo'
 
 class Mempool {
-  transactions: Set<ObjectId> = new Set<ObjectId>()
+  transactions: string[] = []
+  state: UTXOSet | undefined
 
   async load() {
     try {
-      this.transactions = new Set(await db.get('mempool')) //TODO: Initialize the mempool state by applying the transactions in your longest chain
+      this.transactions = new Array(await db.get('mempool:txs')) //TODO: Initialize the mempool state by applying the transactions in your longest chain
       logger.debug(`Loaded saved mempool: ${[...this.transactions]}`)
     }
     catch {
       logger.info(`Initializing mempool database`)
-      this.transactions = new Set() //TODO: add transactions from longest chain in response to getChaintip events 
+      this.transactions = [] //TODO: add transactions from longest chain in response to getChaintip events 
       await this.store()
+    }
+    try {
+      const stateArray = await db.get('mempool:state')
+      logger.debug(`Loaded saved state: ${stateArray}`)
+      this.state = new UTXOSet(new Set<string>(stateArray))
+    }
+    catch {
+      this.state = new UTXOSet(new Set())
     }
   }
   async store() {
-    await db.put('mempool', [...this.transactions])
+    if (this.state == undefined){
+      throw new AnnotatedError('INTERNAL_ERROR', "Cannot add undefined state to db.")
+    }
+    await db.put('mempool:txs', [...this.transactions])
+    await db.put('mempool:state', Array.from(this.state.outpoints))
   }
 
   async apply(tx: Transaction) {
     logger.debug(`Applying transaction ${tx.txid} to mempool`)
-    //TODO: validate this! 
-    this.transactions.add(tx.txid)
-    this.store() // intentionally delayed await
-    logger.info(`Mempool size: ${this.transactions.size}`)
-  }
-  async delete(tx: Transaction) {
-    logger.debug(`Deleting transaction ${tx.txid} from mempool`)
-    this.transactions.delete(tx.txid)
-    this.store() // intentionally delayed await
-    logger.info(`Mempool size: ${this.transactions.size}`)
-  }
-  async applyMultiple(txs: Transaction[], block?: Block) {
-    for (const tx of txs) {
-      logger.debug(`Applying transaction ${tx.txid} to state`)
-      await this.apply(tx)
-      logger.debug(`State after transaction application is: ${this}`)
-    }
-  }
-  toString() {
-    return `mempool : ${JSON.stringify(Array.from(this.transactions))}`
+    /* Will throw an error if we cannot apply. */
+    await this.state?.apply(tx);
+    this.transactions.push(tx.txid)
+    await this.store()
+    logger.info(`Mempool size: ${this.transactions.length}`)
   }
 }
 
