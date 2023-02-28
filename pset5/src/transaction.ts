@@ -172,9 +172,6 @@ export class Transaction {
     let sumInputs = 0
     let sumOutputs = 0
 
-    logger.debug(`Checking that a transaction does not have multiple inputs from the same outpoint ${this.txid}`)
-
-
     logger.debug(`Checking the law of conservation for transaction ${this.txid}`)
     for (const inputValue of inputValues) {
       sumInputs += inputValue

@@ -34,7 +34,6 @@ export class UTXOSet {
       logger.debug(`Outpoint ${outpointStr} is unspent.`)
       logger.debug(`Checking if outpoint ${outpointStr} is being respent in the same tx.`)
       
-      //TODO: Should not be duplicating this in transaction.ts? 
       if (seen.has(outpointStr)) {
         logger.debug(`Transaction ${tx.txid} has two different inputs spending the same outpoint ${outpointStr}`)
         throw new AnnotatedError('INVALID_TX_OUTPOINT', 'Two different inputs of the same transaction are spending the same outpoint')

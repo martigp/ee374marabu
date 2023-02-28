@@ -1,5 +1,7 @@
 import { Block } from "./block";
 import { logger } from "./logger";
+import { mempool } from "./mempool";
+import { Transaction } from "./transaction";
 
 class ChainManager {
   longestChainHeight: number = 0
@@ -24,6 +26,15 @@ class ChainManager {
       logger.debug(`New longest chain has height ${height} and tip ${block.blockid}`)
       this.longestChainHeight = height
       this.longestChainTip = block
+    }
+    else{ 
+      //update mempool by applying new block  
+      mempool.state = block.stateAfter
+      const old_txs = mempool.transactions
+      mempool.transactions = [] 
+      for (const txid in old_txs){ 
+        await mempool.apply(await Transaction.byId(txid))
+      }
     }
   }
 }
