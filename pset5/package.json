@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "ts-node --require dotenv/config src/index.ts"
+    "start": "ts-node --require dotenv/config src/index.ts",
+    "test": "ts-node --require dotenv/config src/autograder.ts"
   },
   "author": "Dionysis Zindros",
   "license": "MIT",

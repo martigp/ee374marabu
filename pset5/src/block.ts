@@ -331,6 +331,7 @@ export class Block {
       this.valid = true
       try {
         await this.save()
+        logger.debug(`Sending new valid block ${this.blockid} to the chain manager`)
         await chainManager.onValidBlockArrival(this)
       } 
       catch (e: any) {

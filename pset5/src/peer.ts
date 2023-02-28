@@ -263,7 +263,7 @@ export class Peer {
   }
 
   async onMessageGetMempool(msg: GetMempoolMessageType) {
-    this.sendMempool(/*TODO: actual send it*/ [])
+    this.sendMempool(mempool.transactions)
 
   }
   async onMessageMempool(msg: MempoolMessageType) {

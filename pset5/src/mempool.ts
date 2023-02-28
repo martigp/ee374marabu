@@ -47,6 +47,7 @@ class Mempool {
   }
   /* If a simple new block on top of existing. Blocks*/
   async update(newState: UTXOSet, reorg : boolean, shortFork?: Block[] ){
+    logger.debug("Beginning mempool update")
     let maybeTxs : string[] = []
     if (reorg && shortFork !== undefined) {
       for(const block of shortFork){
@@ -63,8 +64,11 @@ class Mempool {
         let tx = await Transaction.byId(txid)
         await this.state?.apply(tx)
         this.transactions.push(txid)
+        logger.debug(`Applied tx ${txid} to the mempool`)
       }
-      catch {}
+      catch {
+        logger.debug(`Failed to apply or find ${txid}`)
+      }
     }
     await this.store()
   }

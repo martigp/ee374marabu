@@ -45,36 +45,38 @@ class ChainManager {
       logger.debug ("Failed to store longestchain info.")
     }
   }
-  async onValidBlockArrival(newTip: Block) {
-    if (!newTip.valid) {
-      throw new Error(`Received onValidBlockArrival() call for invalid block ${newTip.blockid}`)
+  async onValidBlockArrival(arrivedBlock: Block) {
+    if (!arrivedBlock.valid) {
+      throw new Error(`Received onValidBlockArrival() call for invalid block ${arrivedBlock.blockid}`)
     }
-    const height = newTip.height
+    const height = arrivedBlock.height
 
     if (this.longestChainTip === null) {
       throw new Error('We do not have a local chain to compare against')
     }
     if (height === undefined) {
-      throw new Error(`We received a block ${newTip.blockid} we thought was valid, but had no calculated height.`)
+      throw new Error(`We received a block ${arrivedBlock.blockid} we thought was valid, but had no calculated height.`)
     }
-    if (newTip.stateAfter === undefined)
-      throw new AnnotatedError('INTERNAL_ERROR', `New tip ${newTip.blockid} did not have associated state.`)
+    if (arrivedBlock.stateAfter === undefined)
+      throw new AnnotatedError('INTERNAL_ERROR', `New tip ${arrivedBlock.blockid} did not have associated state.`)
     if (height > this.longestChainHeight) {
       /* Now need to do the mempool update based on common ancestor
          this will involve a procedure that finds the two forks starting
          at the common ancestor. */
-      logger.debug(`New longest chain has height ${height} and tip ${newTip.blockid}`)
-      if (newTip.previd == this.longestChainTip.blockid) {
-        await mempool.update(newTip.stateAfter, false)
+      logger.debug(`New longest chain has height ${height} and tip ${arrivedBlock.blockid}`)
+      if (arrivedBlock.previd == this.longestChainTip.blockid) {
+        await mempool.update(arrivedBlock.stateAfter, false)
       } else {
-        const forks : Forks = await this.findUncommonSuffix(this.longestChainTip, newTip)
-        await mempool.update(newTip.stateAfter, true, forks.shorterChain)
+        const forks : Forks = await this.findUncommonSuffix(this.longestChainTip, arrivedBlock)
+        await mempool.update(arrivedBlock.stateAfter, true, forks.shorterChain)
       }
-      const forks : Forks = await this.findUncommonSuffix(this.longestChainTip, newTip)
+      const forks : Forks = await this.findUncommonSuffix(this.longestChainTip, arrivedBlock)
       this.longestChainHeight = height
-      this.longestChainTip = newTip
+      this.longestChainTip = arrivedBlock
       await this.store()
     }
+    logger.debug(`New block ${arrivedBlock.blockid} height ${arrivedBlock.height} less than current longests 
+                  ${this.longestChainTip.blockid} height ${this.longestChainHeight}`)
   }
   async findUncommonSuffix(shorterChainTip: Block, longerChainTip: Block): Promise<Forks> {
     /* All should technically be valid since it has gotten to this point. */
