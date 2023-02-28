@@ -246,10 +246,6 @@ export class Peer {
         type: 'ihaveobject',
         objectid
       })
-      if(instance instanceof Transaction){
-        //TODO: check that it is valif with respect to mempool state then do the following: 
-        await mempool.apply(instance)
-      }
     }
   }
   async onMessageGetChainTip(msg: GetChainTipMessageType) {
@@ -271,7 +267,7 @@ export class Peer {
 
   }
   async onMessageMempool(msg: MempoolMessageType) {
-    for (const txid of msg.txids){ 
+    for (const txid of msg.txids){
       await objectManager.retrieve(txid, this)
     }
   }
