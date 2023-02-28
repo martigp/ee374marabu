@@ -271,12 +271,6 @@ export class Block {
       }
       logger.debug(`Block proof-of-work for ${this.blockid} is valid`)
 
-      if(this.studentids != undefined){ 
-        if(this.studentids.length > 10){ 
-          throw new AnnotatedError('INVALID_FORMAT', `Block ${this.blockid} has studentid field with over 10 studentids`)
-        }
-      }
-      
       let parentBlock: Block | null = null
       let stateBefore: UTXOSet | undefined
 
