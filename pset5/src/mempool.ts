@@ -46,24 +46,27 @@ class Mempool {
     logger.info(`Mempool size: ${this.transactions.length}`)
   }
   /* If a simple new block on top of existing. Blocks*/
-  async update(newTip: Block){
-    if (newTip.stateAfter === undefined)
-      throw new AnnotatedError('INTERNAL_ERROR', `New longest tip ${newTip.blockid}
-                                 has a null state.`)
+  async update(newState: UTXOSet, reorg : boolean, shortFork?: Block[] ){
+    let maybeTxs : string[] = []
+    if (reorg && shortFork !== undefined) {
+      for(const block of shortFork){
+        for(const txid of block.txids){
+          maybeTxs.push(txid)
+        }
+      }
+    }
+    maybeTxs.concat(this.transactions)                 
     this.transactions = []
-    this.state = newTip.stateAfter
-    for (const txid of this.transactions) {
+    this.state = newState
+    for (const txid of maybeTxs) {
       try {
         let tx = await Transaction.byId(txid)
         await this.state?.apply(tx)
+        this.transactions.push(txid)
       }
       catch {}
     }
     await this.store()
-  }
-
-  async reorg(forks: Forks){
-
   }
 }
 

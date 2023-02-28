@@ -45,32 +45,34 @@ class ChainManager {
       logger.debug ("Failed to store longestchain info.")
     }
   }
-  async onValidBlockArrival(block: Block) {
-    if (!block.valid) {
-      throw new Error(`Received onValidBlockArrival() call for invalid block ${block.blockid}`)
+  async onValidBlockArrival(newTip: Block) {
+    if (!newTip.valid) {
+      throw new Error(`Received onValidBlockArrival() call for invalid block ${newTip.blockid}`)
     }
-    const height = block.height
+    const height = newTip.height
 
     if (this.longestChainTip === null) {
       throw new Error('We do not have a local chain to compare against')
     }
     if (height === undefined) {
-      throw new Error(`We received a block ${block.blockid} we thought was valid, but had no calculated height.`)
+      throw new Error(`We received a block ${newTip.blockid} we thought was valid, but had no calculated height.`)
     }
+    if (newTip.stateAfter === undefined)
+      throw new AnnotatedError('INTERNAL_ERROR', `New tip ${newTip.blockid} did not have associated state.`)
     if (height > this.longestChainHeight) {
       /* Now need to do the mempool update based on common ancestor
          this will involve a procedure that finds the two forks starting
          at the common ancestor. */
-      logger.debug(`New longest chain has height ${height} and tip ${block.blockid}`)
-      if (block.previd == this.longestChainTip.previd) {
-        await mempool.update(block)
+      logger.debug(`New longest chain has height ${height} and tip ${newTip.blockid}`)
+      if (newTip.previd == this.longestChainTip.blockid) {
+        await mempool.update(newTip.stateAfter, false)
       } else {
-        const forks : Forks = await this.findUncommonSuffix(this.longestChainTip, block)
-        await mempool.reorg(forks)
+        const forks : Forks = await this.findUncommonSuffix(this.longestChainTip, newTip)
+        await mempool.update(newTip.stateAfter, true, forks.shorterChain)
       }
-      const forks : Forks = await this.findUncommonSuffix(this.longestChainTip, block)
+      const forks : Forks = await this.findUncommonSuffix(this.longestChainTip, newTip)
       this.longestChainHeight = height
-      this.longestChainTip = block
+      this.longestChainTip = newTip
       await this.store()
     }
   }
