@@ -263,16 +263,20 @@ export class Peer {
   }
 
   async onMessageGetMempool(msg: GetMempoolMessageType) {
-    this.sendMempool(mempool.transactions)
+    const txids : string []= []
+    for (const tx of mempool.transactions){
+      txids.push (tx.txid)
+    }
+    this.sendMempool(txids)
 
   }
   async onMessageMempool(msg: MempoolMessageType) {
     for (const txid of msg.txids){
-      try {
-        await objectManager.retrieve(txid, this)
-      } catch(e : any) {
-        this.sendError(e)
-      }
+      // try {
+      objectManager.retrieve(txid, this)
+      // } catch(e : any) {
+      //   this.sendError(e)
+      // }
     }
   }
   async onMessageError(msg: ErrorMessageType) {

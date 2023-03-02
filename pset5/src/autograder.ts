@@ -124,4 +124,5 @@ function autograder_1(){
     })
 
 }
-autograder_1()
+
+test_valid ()

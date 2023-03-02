@@ -8,16 +8,20 @@ import { UTXOSet } from './utxo'
 import { Forks } from './chain'
 
 class Mempool {
-  transactions: string[] = []
+  transactions: Transaction[] = []
   state: UTXOSet | undefined
 
   async load() {
     try {
-      this.transactions = new Array(await db.get('mempool:txs')) //TODO: Initialize the mempool state by applying the transactions in your longest chain
+      const txids : ObjectId[] = new Array(await db.get('mempool:txs'))
+      this.transactions = []
+      for (const txid of txids){
+        this.transactions.push(Transaction.fromNetworkObject(await objectManager.get(txid)))
+      }
       logger.debug(`Loaded saved mempool: ${[...this.transactions]}`)
     }
     catch {
-      logger.info(`Initializing mempool database`)
+      logger.info(`Initializing mempool database to empty`)
       this.transactions = []
     }
     try {
@@ -33,7 +37,11 @@ class Mempool {
     if (this.state == undefined){
       throw new AnnotatedError('INTERNAL_ERROR', "Cannot add undefined state to db.")
     }
-    await db.put('mempool:txs', [...this.transactions])
+    let txids :string[] = []
+    for (const tx of this.transactions) {
+      txids.push (tx.txid)
+    }
+    await db.put('mempool:txs', [...txids])
     await db.put('mempool:state', Array.from(this.state.outpoints))
   }
 
@@ -41,33 +49,31 @@ class Mempool {
     logger.debug(`Applying transaction ${tx.txid} to mempool`)
     /* Will throw an error if we cannot apply. */
     await this.state?.apply(tx);
-    this.transactions.push(tx.txid)
+    this.transactions.push(tx)
+    logger.debug(`Transaction ${tx.txid} added to mempool.`)
     await this.store()
     logger.info(`Mempool size: ${this.transactions.length}`)
   }
   /* If a simple new block on top of existing. Blocks*/
   async update(newState: UTXOSet, reorg : boolean, shortFork?: Block[] ){
     logger.debug("Beginning mempool update")
-    let maybeTxs : string[] = []
+    let maybeTxs : Transaction[] = []
     if (reorg && shortFork !== undefined) {
       for(const block of shortFork){
-        for(const txid of block.txids){
-          maybeTxs.push(txid)
-        }
+        maybeTxs.concat(await block.getTxs())
       }
     }
     maybeTxs.concat(this.transactions)                 
     this.transactions = []
     this.state = newState
-    for (const txid of maybeTxs) {
+    for (const tx of maybeTxs) {
       try {
-        let tx = await Transaction.byId(txid)
-        await this.state?.apply(tx)
-        this.transactions.push(txid)
-        logger.debug(`Applied tx ${txid} to the mempool`)
+        await this.apply(tx)
+        logger.debug("Upon arrival of new block mempool was updated"
+                     +`with tx ${tx.txid}`)
       }
       catch {
-        logger.debug(`Failed to apply or find ${txid}`)
+        logger.debug(`Failed to apply or find ${tx.txid}`)
       }
     }
     await this.store()

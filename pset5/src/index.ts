@@ -12,8 +12,8 @@ logger.info(`Dionysis Zindros <dionyziz@stanford.edu>`)
 
 async function main() {
   await chainManager.init()
-  network.init(BIND_PORT, BIND_IP)
   await mempool.load()
+  network.init(BIND_PORT, BIND_IP)
 }
 
 main()

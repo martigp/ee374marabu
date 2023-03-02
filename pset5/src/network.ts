@@ -13,7 +13,6 @@ class Network {
 
   async init(bindPort: number, bindIP: string) {
     await peerManager.load()
-    await mempool.load()
 
     const server = net.createServer(socket => {
       logger.info(`New connection from peer ${socket.remoteAddress}`)
