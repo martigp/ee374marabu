@@ -11,6 +11,7 @@ import { canonicalize } from 'json-canonicalize'
 import { ver } from './crypto/signature'
 import { logger } from './logger'
 import { Block } from './block'
+import {hash} from './crypto/hash'
 
 export class Output {
   pubkey: PublicKey
@@ -112,7 +113,7 @@ export class Transaction {
     }
     const outputs = Transaction.outputsFromNetworkObject(txObj.outputs)
 
-    return new Transaction(objectManager.id(txObj), inputs, outputs, height)
+    return new Transaction(hash(canonicalize(txObj)), inputs, outputs, height)
   }
   static async byId(txid: ObjectId): Promise<Transaction> {
     return this.fromNetworkObject(await objectManager.get(txid))
@@ -131,7 +132,7 @@ export class Transaction {
     const unsignedTxStr = canonicalize(this.toNetworkObject(false))
 
     if (this.isCoinbase()) {
-      if (this.outputs.length > 1) {
+      if (this.outputs.length !== 1) {
         throw new AnnotatedError('INVALID_FORMAT', `Invalid coinbase transaction ${this.txid}. Coinbase must have only a single output.`)
       }
       if (block !== undefined && idx !== undefined) {
