@@ -11,6 +11,7 @@ import  { Block } from './block'
 import { network } from './network'
 import { ChildProcess, spawn } from 'child_process'
 import { delay } from './promise'
+import * as fs from 'fs'
 
 const coinbaseTemplate = {
     height:10,
@@ -123,6 +124,8 @@ class MiningManager {
             logger.debug("Killing existing miner")
             this.miner.kill('SIGKILL')
         }
+
+        fs.writeFileSync('./block_to_mine', canonicalize(this.miningBlock), 'utf-8')
 
         this.miner = spawn('ts-node', ['./src/minimal_miner.ts', canonicalize(this.miningBlock)])
         this.miner.on('error', (err)=>{
