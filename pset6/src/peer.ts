@@ -275,7 +275,12 @@ export class Peer {
   }
   async onMessageMempool(msg: MempoolMessageType) {
     for (const txid of msg.txids) {
-      objectManager.retrieve(txid, this) // intentionally delayed
+      try {
+        await objectManager.retrieve(txid, this)
+      }
+      catch(e) {
+        logger.debug(`Could not retrieve tx ${txid} from mempool because of error ${e}`)
+      }
     }
   }
   async onMessageError(msg: ErrorMessageType) {
