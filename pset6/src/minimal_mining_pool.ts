@@ -114,6 +114,8 @@ class MiningManager {
         this.miningBlock.previd = newPrevid
         this.miningBlock.txids = [coinbaseId].concat(txids)
 
+        logger.debug(`TXIDS being put int mining block ${txids}`)
+
         if(!BlockObject.guard(this.miningBlock))
             throw Error(`Incorrectly formatted template block ${this.miningBlock}`)
 
@@ -130,8 +132,9 @@ class MiningManager {
         this.miner.stdio[1]?.on('data', async (data)=>{
             let buffer : string = "";
             buffer += data;
-            console.log(`Nonce received from miner` + buffer)
-            this.miningBlock.nonce = buffer
+            let nonce = buffer.split('\n')[0]
+            console.log(`Nonce received from miner` + nonce)
+            this.miningBlock.nonce = nonce
             await this.handleMinedBlock()
             await this.spendCoinbase(this.coinbase)
         })
@@ -150,7 +153,7 @@ class MiningManager {
                 throw Error(`Invalid semantic block produced by miner with error ${e}`)
             }
             logger.debug(`Mined block ${newBlock.blockid} validated succesfully, about to broadcast`)
-            network.broadcast(this.miningBlock)
+            network.broadcast({type : 'object', object: this.miningBlock})
         }
     }
     async spendCoinbase(cb : any) {
@@ -159,23 +162,25 @@ class MiningManager {
         if (!TransactionObject.guard(cb)) {
             throw Error("Trying to spend mined block's coinbase but it was invalid")
         }
-        let spendingTx = spendingTemplate
-        if ('inputs' in spendingTx) {
-            spendingTx.inputs[0].outpoint.txid = hash(canonicalize(cb))
-            let unsigned = spendingTx
+        let spendingObj = spendingTemplate
+        if ('inputs' in spendingObj) {
+            spendingObj.inputs[0].outpoint.txid = hash(canonicalize(cb))
+            let spendingTx = Transaction.fromNetworkObject(spendingObj)
+            let unsigned = spendingTx.toNetworkObject(false)
+            console.log(`Unsigned spending Tx: ${unsigned}`)
             const privkeyBuffer = hex2uint8(this.privkey)
-            const messageBuffer = Uint8Array.from(Buffer.from(canonicalize(spendingTx), 'utf-8'))
+            const messageBuffer = Uint8Array.from(Buffer.from(canonicalize(unsigned), 'utf-8'))
             let sig = await ed.sign(messageBuffer, privkeyBuffer)
             spendingTx.inputs[0].sig = uint82hex(sig)
             if (!await ver(uint82hex(sig), canonicalize(unsigned), this.pubkey)) {
                 throw Error("Something went wrong with signing tx that spends cb")
             }
             logger.debug("Successfully generated a new spending Tx from mined CB")
+            network.broadcast({type: 'object', object: canonicalize(spendingTx.toNetworkObject())})
+
         } else {
-            throw Error(`There are no inputs in the spending tx ${spendingTx}`)
-        }
-        network.broadcast({type: 'object', object: canonicalize(spendingTx)})
-    }
+            throw Error(`There are no inputs in the spending tx ${spendingObj}`)
+        }    }
 }
 
 export const miningManager = new MiningManager()

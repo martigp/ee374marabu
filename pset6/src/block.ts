@@ -14,6 +14,7 @@ import { miningManager } from './minimal_mining_pool'
 import { mempool } from './mempool'
 
 export const TARGET : string = '00000000abc00000000000000000000000000000000000000000000000000000'
+export const TEST_TARGET : string = '00001a00abc00000000000000000000000000000000000000000000000000000'
 const GENESIS: BlockObjectType = {
   T: TARGET,
   created: 1671062400,

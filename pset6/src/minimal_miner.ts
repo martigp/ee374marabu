@@ -4,6 +4,7 @@ import { canonicalize } from 'json-canonicalize';
 import { BlockObject } from './message';
 
 const TARGET = '00000000abc00000000000000000000000000000000000000000000000000000'
+const TEST_TARGET = '00001a00abc00000000000000000000000000000000000000000000000000000'
 
 function getNewNonce(nonce : Uint8Array) : Uint8Array {
     let index = nonce.length - 1;
@@ -26,7 +27,6 @@ try {
     let nonceHex = block.nonce
     let nonceArr = Uint8Array.from(Buffer.from(nonceHex, 'hex'))
     let blockid = hash(canonicalize(block))
-    let ctr = 0
     while(true) {
         if (BigInt(`0x${blockid}`) <= BigInt(`0x${TARGET}`)) {
             console.log(nonceHex)
@@ -36,7 +36,6 @@ try {
         nonceHex = uint82hex(nonceArr)
         block.nonce = nonceHex
         blockid = hash(canonicalize(block))
-        ctr++
     }
 } 
 catch (e) {
