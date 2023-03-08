@@ -10,8 +10,10 @@ import { logger } from './logger'
 import { Transaction } from './transaction'
 import { chainManager } from './chain'
 import { Deferred } from './promise'
+import { miningManager } from './minimal_mining_pool'
+import { mempool } from './mempool'
 
-const TARGET = '00000000abc00000000000000000000000000000000000000000000000000000'
+export const TARGET : string = '00000000abc00000000000000000000000000000000000000000000000000000'
 const GENESIS: BlockObjectType = {
   T: TARGET,
   created: 1671062400,
@@ -71,10 +73,13 @@ export class Block {
       object.studentids
     )
     // see if we can load block metadata from cache
+    logger.debug (`Constructed block ${b.blockid}`)
     try {
       await b.load()
     }
-    catch {} // block metadata not cached
+    catch {
+      logger.debug(`Block with id ${b.blockid} %o had no metadata`, object)
+    } // block metadata not cached
     return b
   }
   constructor(
@@ -351,6 +356,7 @@ export class Block {
       try {
         await this.save()
         await chainManager.onValidBlockArrival(this)
+        await miningManager.newChainTip(this.height, this.blockid, mempool.getTxIds())
       } 
       catch (e: any) {
         throw new AnnotatedError('INTERNAL_ERROR', 'Something went wrong is block saving or state calculations.')
