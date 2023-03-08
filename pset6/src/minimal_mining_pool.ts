@@ -17,7 +17,7 @@ const coinbaseTemplate = {
     height:10,
     outputs:
         [{
-            pubkey:"ee37413dd87d1a056da15f6ebfef6a9dc1691f2828f02c69a58520098506aedc",
+            pubkey:"3f0bc71a375b574e4bda3ddf502fe1afd99aa020bf6049adfe525d9ad18ff33f",
             value:50000000000000}],
     type:"transaction"
 }
