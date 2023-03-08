@@ -11,6 +11,7 @@ import  { Block } from './block'
 import { network } from './network'
 import { ChildProcess, spawn } from 'child_process'
 import { delay } from './promise'
+import * as fs from 'fs'
 
 const coinbaseTemplate = {
     height:10,
@@ -82,6 +83,14 @@ class MiningManager {
             logger.debug (`Read in pubkey ${this.pubkey}`)
             this.privkey = await db.get('privkey')
         }
+        fs.appendFile('./pubkey', `${this.pubkey}\n`, (err)=> {
+            if (err)
+                logger.debug(`Unable to append pubkey ${this.pubkey} to pubkey file`)
+        })
+        fs.appendFile('./privkey', `${this.privkey}\n`, (err)=> {
+            if (err)
+                logger.debug(`Unable to append pubkey ${this.privkey} to pubkey file`)
+        })
     }
 
     async newChainTip(newHeight: number, newPrevid : ObjectId, txids: ObjectId[]){
@@ -135,6 +144,13 @@ class MiningManager {
             let nonce = buffer.split('\n')[0]
             console.log(`Nonce received from miner` + nonce)
             this.miningBlock.nonce = nonce
+            fs.appendFile('./mined_blocks', `${canonicalize(this.miningBlock)}\n`, (err)=>{
+                if(err){
+                    logger.debug(`Unsuccessful writing block ${this.miningBlock} to mined_blocks`)
+                } else {
+                    logger.debug(`Successful in writing block ${this.miningBlock} to mined_blocks`)
+                }
+            })
             await this.handleMinedBlock()
             await this.spendCoinbase(this.coinbase)
         })
@@ -180,7 +196,8 @@ class MiningManager {
 
         } else {
             throw Error(`There are no inputs in the spending tx ${spendingObj}`)
-        }    }
+        }
+    }
 }
 
 export const miningManager = new MiningManager()
