@@ -16,7 +16,8 @@ import { Messages,
          ErrorMessageType,
          GetMemPoolMessageType,
          MempoolMessageType,
-         AnnotatedError
+         AnnotatedError,
+         ObjectType
         } from './message'
 import { peerManager } from './peermanager'
 import { canonicalize } from 'json-canonicalize'
@@ -274,13 +275,15 @@ export class Peer {
     this.sendMempool(txids)
   }
   async onMessageMempool(msg: MempoolMessageType) {
+    const txPromises: Promise<ObjectType>[] = []
     for (const txid of msg.txids) {
-      try {
-        await objectManager.retrieve(txid, this)
-      }
-      catch(e) {
-        logger.debug(`Could not retrieve tx ${txid} from mempool because of error ${e}`)
-      }
+      txPromises.push(objectManager.retrieve(txid, this)) // intentionally delayed
+    }
+    try {
+      await Promise.all(txPromises)
+    }
+    catch(e){
+      logger.debug(`Got error retrieving mempool txs: ${e}`)
     }
   }
   async onMessageError(msg: ErrorMessageType) {
