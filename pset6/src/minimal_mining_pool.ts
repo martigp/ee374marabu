@@ -12,6 +12,8 @@ import { network } from './network'
 import { ChildProcess, spawn } from 'child_process'
 import { delay } from './promise'
 import * as fs from 'fs'
+import { mempool } from './mempool'
+import { chainManager } from './chain'
 
 const coinbaseTemplate = {
     height:10,
@@ -91,6 +93,8 @@ class MiningManager {
             if (err)
                 logger.debug(`Unable to append pubkey ${this.privkey} to pubkey file`)
         })
+        if (chainManager.longestChainTip !== null)
+            this.newChainTip(chainManager.longestChainHeight, chainManager.longestChainTip.blockid, mempool.getTxIds())
     }
 
     async newChainTip(newHeight: number, newPrevid : ObjectId, txids: ObjectId[]){
@@ -135,6 +139,8 @@ class MiningManager {
 
         fs.writeFileSync('./block_to_mine', canonicalize(this.miningBlock), 'utf-8')
 
+        let start_time = Math.floor(new Date().getTime() / 1000)
+        logger.info(`Miner started at ${start_time}`)
         this.miner = spawn('ts-node', ['./src/minimal_miner.ts', canonicalize(this.miningBlock)])
         this.miner.on('error', (err)=>{
             logger.error("Failed to spawn child")
@@ -145,6 +151,9 @@ class MiningManager {
             buffer += data;
             let nonce = buffer.split('\n')[0]
             console.log(`Nonce received from miner` + nonce)
+            let finish_time = Math.floor(new Date().getTime() / 1000)
+            logger.info(`GORDON: miner finished at ${finish_time}`)
+            logger.info(`GORDON miner time taken ${finish_time - start_time}`)
             this.miningBlock.nonce = nonce
             fs.appendFile('./mined_blocks', `${canonicalize(this.miningBlock)}\n`, (err)=>{
                 if(err){
