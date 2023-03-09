@@ -357,7 +357,6 @@ export class Block {
       try {
         await this.save()
         await chainManager.onValidBlockArrival(this)
-        await miningManager.newChainTip(this.height, this.blockid, mempool.getTxIds())
       } 
       catch (e: any) {
         throw new AnnotatedError('INTERNAL_ERROR', 'Something went wrong is block saving or state calculations.')

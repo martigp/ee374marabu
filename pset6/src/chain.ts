@@ -2,6 +2,7 @@ import { Block } from "./block";
 import { logger } from "./logger";
 import { mempool } from "./mempool";
 import { db } from "./object";
+import { miningManager } from "./minimal_mining_pool";
 
 class ChainManager {
   longestChainHeight: number = 0
@@ -55,6 +56,7 @@ class ChainManager {
       this.longestChainHeight = height
       this.longestChainTip = block
       await mempool.reorg(lca, shortFork, longFork)
+      await miningManager.newChainTip(height, block.blockid, mempool.getTxIds())
       await this.save()
     }
   }
