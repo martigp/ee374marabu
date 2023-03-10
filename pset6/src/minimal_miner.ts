@@ -28,7 +28,7 @@ try {
     let nonceArr = Buffer.from(nonceHex, 'hex')
     let blockid = hash(canonicalize(block))
     while(true) {
-        if (BigInt(`0x${blockid}`) <= BigInt(`0x${TEST_TARGET}`)) {
+        if (BigInt(`0x${blockid}`) <= BigInt(`0x${TARGET}`)) {
             console.log(nonceHex)
             break
         }

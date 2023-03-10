@@ -56,7 +56,6 @@ class ChainManager {
       this.longestChainHeight = height
       this.longestChainTip = block
       await mempool.reorg(lca, shortFork, longFork)
-      await miningManager.newChainTip(height, block.blockid, mempool.getTxIds())
       await this.save()
     }
   }
