@@ -141,7 +141,10 @@ class MiningManager {
 
         let start_time = Math.floor(new Date().getTime() / 1000)
         logger.info(`Miner started at ${start_time}`)
-        this.miner = spawn('ts-node', ['./src/minimal_miner.ts', canonicalize(this.miningBlock)])
+
+        let wholeBlockArr = canonicalize(this.miningBlock).split(this.miningBlock.nonce)
+        this.miner = spawn('pwd')
+        //this.miner = spawn('./worker',[wholeBlockArr[0], blockTemplate.nonce, wholeBlockArr[1]])
         this.miner.on('error', (err)=>{
             logger.error("Failed to spawn child")
         })
