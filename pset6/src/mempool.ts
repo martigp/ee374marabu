@@ -5,6 +5,7 @@ import { AnnotatedError } from './message'
 import { db, ObjectId, objectManager } from './object'
 import { Transaction } from './transaction'
 import { UTXOSet } from './utxo'
+import { miningManager } from './minimal_mining_pool'
 
 class MemPool {
   txs: Transaction[] = []
@@ -40,23 +41,22 @@ class MemPool {
       const txids = await db.get('mempool:txids')
       logger.debug(`Retrieved cached mempool: ${txids}.`)
       this.fromTxIds(txids)
-    }
-    catch {
-      // start with an empty mempool of no transactions
-    }
-    try {
       logger.debug(`Loading mempool state from cache`)
       const outpoints = await db.get('mempool:state')
       logger.debug(`Outpoints loaded from cache: ${outpoints}`)
       this.state = new UTXOSet(new Set<string>(outpoints))
     }
     catch {
-      // start with an empty state
+      this.txs = []
       this.state = new UTXOSet(new Set())
+      await this.save()
     }
   }
   async onTransactionArrival(tx: Transaction): Promise<boolean> {
     try {
+      if (tx.isCoinbase()) {
+        throw new Error('coinbase cannot be added to mempool')
+      }
       await this.state?.apply(tx)
     }
     catch (e: any) {
@@ -101,6 +101,8 @@ class MemPool {
     logger.info(`Re-applied ${successes} transaction(s) to mempool.`)
     logger.info(`${successes - orphanedTxs.length} transactions were abandoned.`)
     logger.info(`Mempool reorg completed.`)
+    if (tip.height !== undefined )
+      await miningManager.newChainTip(tip.height, tip.blockid, mempool.getTxIds())
   }
 }
 

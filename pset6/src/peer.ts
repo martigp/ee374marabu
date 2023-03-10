@@ -283,7 +283,7 @@ export class Peer {
       await Promise.all(txPromises)
     }
     catch(e){
-      logger.debug(`Got error retrieving mempool txs: ${e}`)
+      this.sendError(new AnnotatedError('UNFINDABLE_OBJECT', 'Could not find one of the objects in the mempool'))
     }
   }
   async onMessageError(msg: ErrorMessageType) {

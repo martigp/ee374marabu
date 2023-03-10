@@ -123,7 +123,7 @@ class MiningManager {
         }
 
         this.miningBlock.created = Math.floor(new Date().getTime() / 1000)
-        this.miningBlock.nonce = hash(`Gordon & mapau ${newHeight}`)
+        this.miningBlock.nonce = hash(`Gordon & mapau ${newHeight} ${Math.random() * 2048}`)
         this.miningBlock.previd = newPrevid
         this.miningBlock.txids = [coinbaseId].concat(txids)
 
@@ -131,6 +131,15 @@ class MiningManager {
 
         if(!BlockObject.guard(this.miningBlock))
             throw Error(`Incorrectly formatted template block ${this.miningBlock}`)
+
+        /* Doing initial block validation. */
+        try {
+            let toMineBlock = await Block.fromNetworkObject(this.miningBlock)
+            await toMineBlock.validate(network.peers[0])
+        }
+        catch(e){
+            logger.info(`Failed to create new block to mine with error ${e}`)
+        }
 
         if (this.miner !== null) {
             logger.debug("Killing existing miner")
@@ -167,20 +176,18 @@ class MiningManager {
         })
     }
     async handleMinedBlock() {
-        BlockObject.check(this.miningBlock)
         if (!BlockObject.guard(this.miningBlock)) {
-            logger.info(`Mined block is incorrectly formatted %o`, this.miningBlock)
-            throw Error(`Invalid formatted block produced by miner ${this.miningBlock}`)
-        } else {
+            logger.info(`Mined block is incorrectly formatted %o`, this.miningBlock)        }
+        else {
             await objectManager.put(this.miningBlock)
             let newBlock = await Block.fromNetworkObject(this.miningBlock)
             try {
                 await newBlock.validate(network.peers[0])
+                logger.debug(`Mined block ${newBlock.blockid} validated succesfully, about to broadcast`)
+                network.broadcast({type : 'object', object: this.miningBlock})
             } catch (e) {
-                throw Error(`Invalid semantic block produced by miner with error ${e}`)
+                logger.info(`Invalid semantic block produced by miner with error ${e}`)
             }
-            logger.debug(`Mined block ${newBlock.blockid} validated succesfully, about to broadcast`)
-            network.broadcast({type : 'object', object: this.miningBlock})
         }
     }
     async spendCoinbase(cb : any) {
