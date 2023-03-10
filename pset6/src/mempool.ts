@@ -12,7 +12,9 @@ class MemPool {
   state: UTXOSet | undefined
 
   async init() {
-    await this.load()
+    this.txs = []
+    this.state = new UTXOSet(new Set())
+    await this.save()
     logger.debug('Mempool initialized')
   }
   getTxIds(): ObjectId[] {

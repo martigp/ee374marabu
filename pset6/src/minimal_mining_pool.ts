@@ -93,8 +93,6 @@ class MiningManager {
             if (err)
                 logger.debug(`Unable to append pubkey ${this.privkey} to pubkey file`)
         })
-        if (chainManager.longestChainTip !== null)
-            this.newChainTip(chainManager.longestChainHeight, chainManager.longestChainTip.blockid, mempool.getTxIds())
     }
 
     async newChainTip(newHeight: number, newPrevid : ObjectId, txids: ObjectId[]){
