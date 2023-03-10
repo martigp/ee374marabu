@@ -69,7 +69,7 @@ class ObjectManager {
       async (obj: BlockObjectType) => {
         const block = await Block.fromNetworkObject(obj)
         logger.debug(`Validating block: ${block.blockid}`)
-        await block.validate(peer)
+        await block.validate(peer, true)
         return block
       }
     )(object)

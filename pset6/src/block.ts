@@ -222,7 +222,7 @@ export class Block {
     }
 
     this.stateAfter = stateAfter
-    logger.debug(`UTXO state of block ${this.blockid} cached: ${JSON.stringify(Array.from(stateAfter.outpoints))}`)
+    // logger.debug(`UTXO state of block ${this.blockid} cached: ${JSON.stringify(Array.from(stateAfter.outpoints))}`)
   }
   async loadParent(): Promise<Block | null> {
     let parentBlock: Block
@@ -267,7 +267,7 @@ export class Block {
       }
       catch {
         logger.debug(`Awaiting validation of the parent block ${this.previd} of the block ${this.blockid}.`)
-        await parentBlock.validate(peer)
+        await parentBlock.validate(peer, true)
       }
     }
     catch (e: any) {
@@ -275,7 +275,7 @@ export class Block {
     }
     return parentBlock
   }
-  async validate(peer: Peer) {
+  async validate(peer: Peer, powCheck : boolean) {
     logger.debug(`Validating block ${this.blockid}`)
 
     if (blockManager.deferredValidations[this.blockid] !== undefined) {
@@ -294,7 +294,7 @@ export class Block {
         throw new AnnotatedError('INVALID_FORMAT', `Block ${this.blockid} does not specify the fixed target ${TARGET}, but uses target ${this.T} instead.`)
       }
       logger.debug(`Block target for ${this.blockid} is valid`)
-      if (!this.hasPoW()) {
+      if (powCheck && !this.hasPoW()) {
         throw new AnnotatedError('INVALID_BLOCK_POW', `Block ${this.blockid} does not satisfy the proof-of-work equation; rejecting block.`)
       }
       logger.debug(`Block proof-of-work for ${this.blockid} is valid`)
@@ -351,7 +351,7 @@ export class Block {
                       + `so we cannot calculate the state of the current block with blockid = ${this.blockid}`)
       }
 
-      logger.debug(`State before block ${this.blockid} is ${stateBefore}`)
+      // logger.debug(`State before block ${this.blockid} is ${stateBefore}`)
 
       await this.validateTx(peer, stateBefore, this.height)
       logger.debug(`Block ${this.blockid} has valid transactions`)

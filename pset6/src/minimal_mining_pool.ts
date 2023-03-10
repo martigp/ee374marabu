@@ -133,7 +133,7 @@ class MiningManager {
         /* Doing initial block validation. */
         try {
             let toMineBlock = await Block.fromNetworkObject(this.miningBlock)
-            await toMineBlock.validate(network.peers[0])
+            await toMineBlock.validate(network.peers[0], false)
         }
         catch(e){
             logger.info(`Failed to create new block to mine with error ${e}`)
@@ -180,7 +180,7 @@ class MiningManager {
             await objectManager.put(this.miningBlock)
             let newBlock = await Block.fromNetworkObject(this.miningBlock)
             try {
-                await newBlock.validate(network.peers[0])
+                await newBlock.validate(network.peers[0], true)
                 logger.debug(`Mined block ${newBlock.blockid} validated succesfully, about to broadcast`)
                 network.broadcast({type : 'object', object: this.miningBlock})
             } catch (e) {
