@@ -144,15 +144,11 @@ class MiningManager {
             // catch(e){
             //     logger.info(`Failed to create new block to mine with error ${e}`)
             // }
-
-            if (this.coinbase.height < newHeight + 1){
-                logger.debug("Killing existing miner")
-                this.miner.kill('SIGKILL')
-                this.coinbase = new_coinbase
-            } else{
-                logger.info (`Current coinbase height ${this.coinbase.height}, new is ${newHeight + 1}`)
-                return
-            }
+            logger.debug("Killing existing miner")
+            this.miner.kill('SIGKILL')
+            this.coinbase = new_coinbase
+            logger.info (`Current coinbase height ${this.coinbase.height}, new is ${newHeight + 1}`)
+            return
 
         }
 
