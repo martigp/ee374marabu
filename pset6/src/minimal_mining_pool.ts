@@ -95,29 +95,33 @@ class MiningManager {
         })
     }
 
-    async newChainTip(newHeight: number, newPrevid : ObjectId, txids: ObjectId[]){
-
-        this.coinbase.height = newHeight + 1
-        if (!TransactionObject.guard(this.coinbase)) {
+    async newChainTip(newHeight: number, newPrevid : ObjectId | undefined, txids: ObjectId[]){
+        
+        if (newPrevid === undefined){
+            logger.info("Undefined previd given to miningManager")
+            return
+        }
+        let new_coinbase = coinbaseTemplate
+        new_coinbase.height = newHeight + 1
+        if (!TransactionObject.guard(new_coinbase)) {
             throw Error(`Created a structurally bad coinbase`)
         }
-        let coinbaseTx = Transaction.fromNetworkObject(this.coinbase)
+        let coinbaseTx = Transaction.fromNetworkObject(new_coinbase)
         try {
             await coinbaseTx.validate()
         }
         catch(e) {
             throw Error(`Created semantically incorrect coinbase for new mined block with error ${e}`)
         }
-        await coinbaseTx.validate()
 
-        let coinbaseId = hash(canonicalize(this.coinbase))
+        let coinbaseId = hash(canonicalize(new_coinbase))
 
         logger.debug(`Generated new coinbase with with height ${newHeight + 1} and ID ${coinbaseId}`)
         try {
-            await objectManager.put(this.coinbase)
+            await objectManager.put(new_coinbase)
         }
         catch(e){
-            throw Error(`Failed to add new coinbase to store ${this.coinbase}`)
+            throw Error(`Failed to add new coinbase to store ${new_coinbase}`)
         }
 
         this.miningBlock.created = Math.floor(new Date().getTime() / 1000)
@@ -125,29 +129,37 @@ class MiningManager {
         this.miningBlock.previd = newPrevid
         this.miningBlock.txids = [coinbaseId].concat(txids)
 
-        logger.debug(`TXIDS being put int mining block ${txids}`)
+        logger.debug(`TXIDS fetched from mempool ${txids}`)
+        logger.debug(`TXIDS being put int mining block ${this.miningBlock.txids}`)
 
         if(!BlockObject.guard(this.miningBlock))
             throw Error(`Incorrectly formatted template block ${this.miningBlock}`)
 
         /* Doing initial block validation. */
-        try {
-            let toMineBlock = await Block.fromNetworkObject(this.miningBlock)
-            await toMineBlock.validate(network.peers[0], false)
-        }
-        catch(e){
-            logger.info(`Failed to create new block to mine with error ${e}`)
+        if (this.miner !== null ) {
+            // try {
+            //     let toMineBlock = await Block.fromNetworkObject(this.miningBlock)
+            //     await toMineBlock.validate(network.peers[0], false)
+            // }
+            // catch(e){
+            //     logger.info(`Failed to create new block to mine with error ${e}`)
+            // }
+
+            if (this.coinbase.height < newHeight + 1){
+                logger.debug("Killing existing miner")
+                this.miner.kill('SIGKILL')
+                this.coinbase = new_coinbase
+            } else{
+                logger.info (`Current coinbase height ${this.coinbase.height}, new is ${newHeight + 1}`)
+                return
+            }
+
         }
 
-        if (this.miner !== null) {
-            logger.debug("Killing existing miner")
-            this.miner.kill('SIGKILL')
-        }
-
-        fs.writeFileSync('./block_to_mine', canonicalize(this.miningBlock), 'utf-8')
+        fs.writeFileSync('./block_to_mine', `${canonicalize(this.miningBlock)}\n${newHeight + 1}\n`, 'utf-8')
 
         let start_time = Math.floor(new Date().getTime() / 1000)
-        logger.info(`Miner started at ${start_time}`)
+        logger.info(`Miner started at height ${newHeight} and ${start_time}`)
         this.miner = spawn('ts-node', ['./src/minimal_miner.ts', canonicalize(this.miningBlock)])
         this.miner.on('error', (err)=>{
             logger.error("Failed to spawn child")
@@ -162,7 +174,7 @@ class MiningManager {
             logger.info(`GORDON: miner finished at ${finish_time}`)
             logger.info(`GORDON miner time taken ${finish_time - start_time}`)
             this.miningBlock.nonce = nonce
-            fs.appendFile('./mined_blocks', `${canonicalize(this.miningBlock)}\n`, (err)=>{
+            fs.appendFile('./mined_blocks', `${canonicalize(this.miningBlock)}\n${newHeight}\n`, (err)=>{
                 if(err){
                     logger.debug(`Unsuccessful writing block ${this.miningBlock} to mined_blocks`)
                 } else {

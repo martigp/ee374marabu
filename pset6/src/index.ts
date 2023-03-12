@@ -11,9 +11,9 @@ logger.info(`Malibu - A Marabu node`)
 logger.info(`Gordon & Mapau`)
 
 async function main() {
+  await miningManager.init()
   await chainManager.init()
   await mempool.init()
-  await miningManager.init()
   network.init(BIND_PORT, BIND_IP)
 }
 

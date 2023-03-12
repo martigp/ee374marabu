@@ -17,7 +17,8 @@ import { Messages,
          GetMemPoolMessageType,
          MempoolMessageType,
          AnnotatedError,
-         ObjectType
+         ObjectType,
+         BlockObject
         } from './message'
 import { peerManager } from './peermanager'
 import { canonicalize } from 'json-canonicalize'
@@ -262,7 +263,7 @@ export class Peer {
   }
   async onMessageChainTip(msg: ChainTipMessageType) {
     if (await objectManager.exists(msg.blockid)) {
-      return
+      logger.info(`Already have chaintip ${msg.blockid}`)
     }
     this.sendGetObject(msg.blockid)
   }

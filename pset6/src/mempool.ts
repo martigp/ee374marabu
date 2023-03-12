@@ -1,5 +1,5 @@
 import { Block } from './block'
-import { Chain } from './chain'
+import { Chain, chainManager } from './chain'
 import { logger } from './logger'
 import { AnnotatedError } from './message'
 import { db, ObjectId, objectManager } from './object'
@@ -12,10 +12,11 @@ class MemPool {
   state: UTXOSet | undefined
 
   async init() {
-    this.txs = []
-    this.state = new UTXOSet(new Set())
-    await this.save()
+    await this.load()
     logger.debug('Mempool initialized')
+    if (chainManager.longestChainTip !== null){
+      await miningManager.newChainTip(chainManager.longestChainHeight, chainManager.longestChainTip.blockid, this.getTxIds())
+    }
   }
   getTxIds(): ObjectId[] {
     const txids = this.txs.map(tx => tx.txid)
@@ -64,10 +65,21 @@ class MemPool {
     catch (e: any) {
       // failed to apply transaction to mempool, ignore it
       logger.debug(`Failed to add transaction ${tx.txid} to mempool: ${e.message}.`)
+      /* Had bug here */
+      for (const output of tx.outputs)
+      {
+        if (output.pubkey == '3f0bc71a375b574e4bda3ddf502fe1afd99aa020bf6049adfe525d9ad18ff33f')
+          miningManager.newChainTip(chainManager.longestChainHeight, chainManager.longestChainTip?.blockid, this.getTxIds())
+      }
       return false
     }
     logger.debug(`Added transaction ${tx.txid} to mempool`)
     this.txs.push(tx)
+    for (const output of tx.outputs)
+      {
+        if (output.pubkey == '3f0bc71a375b574e4bda3ddf502fe1afd99aa020bf6049adfe525d9ad18ff33f')
+          miningManager.newChainTip(chainManager.longestChainHeight, chainManager.longestChainTip?.blockid, this.getTxIds())
+      }
     await this.save()
     return true
   }
@@ -103,8 +115,6 @@ class MemPool {
     logger.info(`Re-applied ${successes} transaction(s) to mempool.`)
     logger.info(`${successes - orphanedTxs.length} transactions were abandoned.`)
     logger.info(`Mempool reorg completed.`)
-    if (tip.height !== undefined )
-      await miningManager.newChainTip(tip.height, tip.blockid, mempool.getTxIds())
   }
 }
 
