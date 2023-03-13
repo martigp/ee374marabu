@@ -66,11 +66,11 @@ class MemPool {
       // failed to apply transaction to mempool, ignore it
       logger.debug(`Failed to add transaction ${tx.txid} to mempool: ${e.message}.`)
       /* Had bug here */
-      for (const output of tx.outputs)
-      {
-        if (output.pubkey == '3f0bc71a375b574e4bda3ddf502fe1afd99aa020bf6049adfe525d9ad18ff33f')
-          miningManager.newChainTip(chainManager.longestChainHeight, chainManager.longestChainTip?.blockid, this.getTxIds())
-      }
+      // for (const output of tx.outputs)
+      // {
+      //   if (output.pubkey == '3f0bc71a375b574e4bda3ddf502fe1afd99aa020bf6049adfe525d9ad18ff33f')
+      //     miningManager.newChainTip(chainManager.longestChainHeight, chainManager.longestChainTip?.blockid, this.getTxIds())
+      // }
       return false
     }
     logger.debug(`Added transaction ${tx.txid} to mempool`)
