@@ -148,14 +148,12 @@ class MiningManager {
             this.miner.kill('SIGKILL')
             this.coinbase = new_coinbase
             logger.info (`Current coinbase height ${this.coinbase.height}, new is ${newHeight + 1}`)
-            return
-
         }
 
         fs.writeFileSync('./block_to_mine', `${canonicalize(this.miningBlock)}\n${newHeight + 1}\n`, 'utf-8')
 
         let start_time = Math.floor(new Date().getTime() / 1000)
-        logger.info(`Miner started at height ${newHeight} and ${start_time}`)
+        logger.info(`Miner started at height ${newHeight + 1} and ${start_time}`)
         this.miner = spawn('ts-node', ['./src/minimal_miner.ts', canonicalize(this.miningBlock)])
         this.miner.on('error', (err)=>{
             logger.error("Failed to spawn child")
