@@ -4,7 +4,7 @@ import { canonicalize } from 'json-canonicalize';
 import { BlockObject } from './message';
 
 const TARGET = '00000000abc00000000000000000000000000000000000000000000000000000'
-const TEST_TARGET = '000000abc0000000000000000000000000000000000000000000000000000000'
+const TEST_TARGET = '100000abc0000000000000000000000000000000000000000000000000000000'
 
 function getNewNonce(nonce : Buffer) : Buffer {
     let index = nonce.length - 1;
@@ -20,13 +20,11 @@ function getNewNonce(nonce : Buffer) : Buffer {
 }
 
 try {
-    let block = JSON.parse(process.argv[2])
-    if(!BlockObject.guard(block)) {
-        throw Error('Mining candidate valid block type')
-    }
-    let nonceHex = block.nonce
+    let part1 = process.argv[2]
+    let nonceHex = process.argv[3]
+    let part2 = process.argv[4]
     let nonceArr = Buffer.from(nonceHex, 'hex')
-    let blockid = hash(canonicalize(block))
+    let blockid = hash(part1 + nonceHex + part2)
     while(true) {
         if (BigInt(`0x${blockid}`) <= BigInt(`0x${TARGET}`)) {
             console.log(nonceHex)
@@ -34,8 +32,7 @@ try {
         }
         nonceArr = getNewNonce(nonceArr)
         nonceHex = nonceArr.toString('hex')
-        block.nonce = nonceHex
-        blockid = hash(canonicalize(block))
+        blockid = hash(part1 + nonceHex + part2)
     }
 } 
 catch (e) {

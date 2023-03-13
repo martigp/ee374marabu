@@ -154,7 +154,9 @@ class MiningManager {
 
         let start_time = Math.floor(new Date().getTime() / 1000)
         logger.info(`Miner started at height ${newHeight + 1} and ${start_time}`)
-        this.miner = spawn('ts-node', ['./src/minimal_miner.ts', canonicalize(this.miningBlock)])
+        let str_block = canonicalize(this.miningBlock)
+        let list_block = str_block.split(this.miningBlock.nonce)
+        this.miner = spawn('ts-node', ['./src/minimal_miner.ts', list_block[0], this.miningBlock.nonce, list_block[1]])
         this.miner.on('error', (err)=>{
             logger.error("Failed to spawn child")
         })
@@ -214,7 +216,7 @@ class MiningManager {
                 throw Error("Something went wrong with signing tx that spends cb")
             }
             logger.debug("Successfully generated a new spending Tx from mined CB")
-            network.broadcast({type: 'object', object: canonicalize(spendingTx.toNetworkObject())})
+            network.broadcast({type: 'object', object: spendingTx.toNetworkObject()})
 
         } else {
             throw Error(`There are no inputs in the spending tx ${spendingObj}`)
